@@ -45,7 +45,7 @@ Based on your selection, configure the corresponding provider-specific variables
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `KEYCLOAK_URL` | Keycloak server URL (internal/Docker network) | `http://keycloak:8080` | ✅ |
-| `KEYCLOAK_EXTERNAL_URL` | Keycloak server URL (external/browser access) | `https://mcpgateway.ddns.net` | ✅ |
+| `KEYCLOAK_EXTERNAL_URL` | Keycloak server URL (external/browser access) | `https://mcpgateway.ddns.net` (production)<br/>`http://localhost:8080` (local development) | ✅ |
 | `KEYCLOAK_ADMIN_URL` | Keycloak admin URL (for setup scripts) | `http://localhost:8080` | ✅ |
 | `KEYCLOAK_REALM` | Keycloak realm name | `mcp-gateway` | ✅ |
 | `KEYCLOAK_ADMIN` | Keycloak admin username | `admin` | ✅ |
