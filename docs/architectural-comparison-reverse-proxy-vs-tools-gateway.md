@@ -70,42 +70,63 @@ AI Agent/Coding Assistant
 
 ## Architectural Comparison
 
+### Performance
+
 | Aspect | Reverse Proxy (Current) | Tools Gateway | Preferable Approach |
 |--------|-------------------------|---------------|-------------------|
-| **Performance** |
 | Latency | Direct proxy routing = minimal overhead (~1-2ms) | Additional hop through gateway logic (~5-10ms minimum) | Reverse Proxy |
 | Throughput | Each connection directly streams to target server | Gateway becomes bottleneck for all tool calls | Reverse Proxy |
 | Network Efficiency | Client maintains persistent connections to specific servers | Gateway must proxy all request/response payloads | Reverse Proxy |
 | CPU Usage | [Nginx](https://Nginx.org/) handles routing, minimal Python involvement | Gateway must parse, route, and proxy every MCP message | Reverse Proxy |
 | Memory | Low gateway memory usage, servers handle their own state | Gateway must buffer requests/responses, maintain backend connections | Reverse Proxy |
-| Protocol Independence | Nginx passes through any protocol - not MCP-specific | Gateway must understand MCP protocol specifics | Reverse Proxy |
-| Implementation Language | Python suitable due to Nginx handling message routing | Requires Go/Rust for enterprise performance requirements | Reverse Proxy |
-| **Security** |
+| **Protocol Independence** | **Nginx passes through any protocol - not MCP-specific** | **Gateway must understand MCP protocol specifics** | **Reverse Proxy** |
+| Implementation Language | Python suitable due to Nginx handling message routing | **Requires Go/Rust for enterprise performance requirements** | Reverse Proxy |
+
+### Security
+
+| Aspect | Reverse Proxy (Current) | Tools Gateway | Preferable Approach |
+|--------|-------------------------|---------------|-------------------|
 | Authentication | Nginx auth_request pattern = proven, battle-tested | Gateway must implement auth validation | Equivalent |
 | Authorization | Fine-grained scope validation per server/tool before routing | Can implement same fine-grained scopes | Equivalent |
 | Audit Trail | Complete Nginx access logs + auth server logs + IdP logs | Gateway logs all tool calls | Equivalent |
 | Attack Surface | Direct server access blocked, only authenticated routes exposed | Single endpoint, easier to monitor but single point of failure | Equivalent |
 | Token Validation | Centralized in auth server, cached for performance | Must implement JWT/session validation | Equivalent |
-| **Maintainability** |
+
+### Maintainability
+
+| Aspect | Reverse Proxy (Current) | Tools Gateway | Preferable Approach |
+|--------|-------------------------|---------------|-------------------|
 | Service Registration & Configuration | Dynamic Nginx config generation and reload for new servers | Dynamic tool registration without infrastructure changes | Tools Gateway |
 | Debugging | Multi-component debugging (Nginx + auth server + target server) | Centralized logging and error handling | Tools Gateway |
 | Transport Support | Must handle SSE/HTTP variations per server | Must implement transport variations in gateway code | Equivalent |
 | Error Handling | Error propagation through multiple layers | Must implement error translation from backends | Equivalent |
-| **Scaling** |
+
+### Scaling
+
+| Aspect | Reverse Proxy (Current) | Tools Gateway | Preferable Approach |
+|--------|-------------------------|---------------|-------------------|
 | Horizontal Scaling | Can load balance multiple gateway instances easily | Gateway must maintain backend connection pools | Reverse Proxy |
-| Backend Scaling | Each MCP server scales independently | Gateway must implement backend load balancing | Reverse Proxy |
-| Resource Isolation | Server failures don't affect other servers | Gateway failure affects all services | Reverse Proxy |
+| **Backend Scaling** | **Each MCP server scales independently** | **Gateway must implement backend load balancing** | **Reverse Proxy** |
+| **Resource Isolation** | **Server failures don't affect other servers** | **Gateway failure affects all services** | **Reverse Proxy** |
 | Connection Pooling | Direct client connections to needed servers only | Gateway must manage M×N connection pools | Reverse Proxy |
 | Geographic Distribution | Can proxy to servers in different regions | Complex backend routing required | Reverse Proxy |
-| Protocol Extensibility | Same architecture works for Agent-to-Agent (A2A) or other protocols | MCP-specific implementation limits future protocol support | Reverse Proxy |
-| **Operational Complexity** |
+| **Protocol Extensibility** | **Same architecture works for Agent-to-Agent (A2A) or other protocols** | **MCP-specific implementation limits future protocol support** | **Reverse Proxy** |
+
+### Operational Complexity
+
+| Aspect | Reverse Proxy (Current) | Tools Gateway | Preferable Approach |
+|--------|-------------------------|---------------|-------------------|
 | Monitoring | Must monitor Nginx + auth server + N backend servers | Monitor gateway + auth server + N backend servers (simpler) | Tools Gateway |
 | Service Discovery | Complex Nginx config regeneration | Dynamic tool registration | Tools Gateway |
 | Health Checking | Health status triggers Nginx config regeneration and reload | Gateway makes runtime routing decisions based on health | Equivalent |
 | Certificate Management | Single domain cert for gateway endpoint | Only gateway needs external certs | Equivalent |
 | Log Aggregation | Focused logs per component (Nginx, auth, individual MCP servers) | All tool calls centralized in gateway logs | Equivalent |
-| **Enterprise Integration & User Experience** |
-| Client Configuration & Mental Model | Must configure N server endpoints, understand Nginx routing + auth + backend servers | Single endpoint configuration, simple "one gateway, many tools" concept | Tools Gateway |
+
+### Enterprise Integration & User Experience
+
+| Aspect | Reverse Proxy (Current) | Tools Gateway | Preferable Approach |
+|--------|-------------------------|---------------|-------------------|
+| **Client Configuration & Mental Model** | **Must configure N server endpoints, understand Nginx routing + auth + backend servers** | **Single endpoint configuration, simple "one gateway, many tools" concept** | **Tools Gateway** |
 | Network Policies | Must allowlist N different paths | Single path to allowlist | Tools Gateway |
 | Change Management | Adding new server requires client reconfiguration | New tools appear automatically via discovery | Tools Gateway |
 | Vendor Integration | Each vendor needs separate endpoint configuration | Vendors configure single endpoint | Tools Gateway |
