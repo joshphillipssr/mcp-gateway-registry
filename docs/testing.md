@@ -3,12 +3,34 @@
 This guide provides comprehensive testing instructions for the MCP Gateway using both the CLI client and the Python agent.
 
 ## Table of Contents
+- [Regenerate Credentials](#regenerate-credentials)
 - [Quick Start Testing](#quick-start-testing)
 - [CLI Testing with mcp_client.py](#cli-testing-with-mcp_clientpy)
 - [Python Agent Testing](#python-agent-testing)
 - [Authentication Testing](#authentication-testing)
 - [Service Management Testing](#service-management-testing)
 - [Troubleshooting](#troubleshooting)
+
+## Regenerate Credentials
+
+**⚠️ Important:** Unless changed, Keycloak has an access token lifetime of only 5 minutes. You will most likely need to regenerate credentials before testing.
+
+### Generate Fresh Credentials
+
+Run the credential generation script to create fresh tokens:
+
+```bash
+# Generate new credentials for all agents and services
+./credentials-provider/generate_creds.sh
+```
+
+This script will:
+- Generate fresh access tokens for all configured agents
+- Create M2M (machine-to-machine) tokens for service authentication
+- Update all credential files in `.oauth-tokens/` directory
+- Ensure tokens are valid for the current testing session
+
+**Note:** The script should be run whenever you encounter authentication errors or when tokens have expired (every 5 minutes by default).
 
 ## Quick Start Testing
 
