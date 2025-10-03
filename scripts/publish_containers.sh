@@ -43,7 +43,7 @@ declare -a COMPONENTS=(
     "realserverfaketools-server:.:./docker/Dockerfile.mcp-server"
     "fininfo-server:.:./docker/Dockerfile.mcp-server"
     "mcpgw-server:.:./docker/Dockerfile.mcp-server"
-    "metrics-service:.:./docker/Dockerfile.metrics-service"
+    "metrics-service:.:./metrics-service/Dockerfile"
 )
 
 # External images to mirror (pull from source and push to our registries)
