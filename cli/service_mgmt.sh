@@ -843,7 +843,7 @@ create_group() {
 
     # Verify in scopes.yml (container)
     print_info "Verifying group in container scopes.yml..."
-    if docker exec registry cat /app/auth_server/scopes.yml | grep -q "^$group_name:"; then
+    if docker exec mcp-gateway-registry-auth-server-1 cat /app/scopes.yml | grep -q "^$group_name:"; then
         print_success "Group found in container scopes.yml"
     else
         print_error "Group NOT found in container scopes.yml"
@@ -890,7 +890,7 @@ delete_group() {
 
     # Verify removal from scopes.yml (container)
     print_info "Verifying group removal from container scopes.yml..."
-    if docker exec registry cat /app/auth_server/scopes.yml | grep -q "^$group_name:"; then
+    if docker exec mcp-gateway-registry-auth-server-1 cat /app/scopes.yml | grep -q "^$group_name:"; then
         print_error "Group still found in container scopes.yml"
     else
         print_success "Group removed from container scopes.yml"
