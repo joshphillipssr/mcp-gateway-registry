@@ -526,8 +526,8 @@ cd ${HOME}/workspace/mcp-gateway-registry
 
 - **Add more AgentCore gateways** to your registry following this same process
 - **Integrate with Claude Desktop** or other MCP clients for AI-powered interactions
-- **Monitor usage** through the registry UI at http://localhost:7860
-- **Set up observability** to track tool usage and performance metrics
+- **Browse registered services** through the registry UI at http://localhost:7860
+- **Monitor usage and metrics** through Grafana dashboards at http://localhost:3000 - See [Observability Guide](OBSERVABILITY.md)
 
 ## Troubleshooting
 
