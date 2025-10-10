@@ -365,7 +365,7 @@ try:
         errors.append('proxy_pass_url must start with http:// or https://')
 
     # Check for unknown fields (not part of tool spec)
-    allowed_fields = {'server_name', 'path', 'proxy_pass_url', 'description', 'tags', 'num_tools', 'num_stars', 'is_python', 'license', 'auth_provider', 'auth_type', 'supported_transports', 'headers', 'tool_list'}
+    allowed_fields = {'server_name', 'path', 'proxy_pass_url', 'description', 'tags', 'num_tools', 'num_stars', 'is_python', 'license', 'auth_provider', 'auth_type', 'supported_transports', 'headers', 'tool_list', 'repository_url', 'website_url', 'package_npm'}
     unknown_fields = set(config.keys()) - allowed_fields
     if unknown_fields:
         errors.append(f'Unknown fields not allowed by register_service tool spec: {sorted(unknown_fields)}')

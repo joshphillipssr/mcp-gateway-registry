@@ -1,0 +1,7 @@
+# MCP Servers to Import from Anthropic Registry
+# One server name per line, comments start with #
+
+# Test with a few real servers from the registry
+ai.aliengiraffe/spotdb
+#ai.mcpcap/mcpcap
+#ai.shawndurrani/mcp-merchant
