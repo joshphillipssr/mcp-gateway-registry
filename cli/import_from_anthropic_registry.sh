@@ -31,6 +31,14 @@ ANTHROPIC_API_BASE="https://registry.modelcontextprotocol.io"
 TEMP_DIR="$PROJECT_ROOT/.tmp/anthropic-import"
 BASE_PORT=8100
 
+# Read API version from constants.py
+ANTHROPIC_API_VERSION=$(python3 -c "
+import sys
+sys.path.insert(0, '$PROJECT_ROOT')
+from registry.constants import REGISTRY_CONSTANTS
+print(REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION)
+")
+
 # Gateway URL (can be overridden with GATEWAY_URL environment variable)
 GATEWAY_URL="${GATEWAY_URL:-http://localhost}"
 
@@ -119,9 +127,10 @@ current_port=$BASE_PORT
 for server_name in "${servers[@]}"; do
     print_info "Processing: $server_name"
 
-    # Fetch from Anthropic API v0.1 (URL encode server name)
+    # Fetch from Anthropic API (URL encode server name)
+    # API version is dynamically read from registry/constants.py
     encoded_name=$(echo "$server_name" | sed 's|/|%2F|g')
-    api_url="${ANTHROPIC_API_BASE}/v0.1/servers/${encoded_name}/versions/latest"
+    api_url="${ANTHROPIC_API_BASE}/${ANTHROPIC_API_VERSION}/servers/${encoded_name}/versions/latest"
     safe_name=$(echo "$server_name" | sed 's|/|-|g')
     anthropic_file="${TEMP_DIR}/${safe_name}-anthropic.json"
 
