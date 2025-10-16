@@ -4,13 +4,13 @@
 **Issue**: #175
 **Status**: ✅ Fully Implemented with JWT Authentication
 
-> **Note**: The API version ({REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}) is defined as a constant `ANTHROPIC_API_VERSION` in `registry/constants.py`. All code references this constant rather than hardcoding the version string.
+> **Note**: The API version (v0.1) is defined as a constant `ANTHROPIC_API_VERSION` in `registry/constants.py`. All code references this constant rather than hardcoding the version string.
 
 ---
 
 ## Overview
 
-This implementation provides full compatibility with the [Anthropic MCP Registry REST API {REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION} specification](https://github.com/modelcontextprotocol/registry), enabling seamless integration with MCP ecosystem tools and downstream applications.
+This implementation provides full compatibility with the [Anthropic MCP Registry REST API v0.1 specification](https://github.com/modelcontextprotocol/registry), enabling seamless integration with MCP ecosystem tools and downstream applications.
 
 ### Key Features
 
@@ -33,7 +33,7 @@ This implementation provides full compatibility with the [Anthropic MCP Registry
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Nginx (:80/:443)                                            │
-│  └─ /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/* location                                          │
+│  └─ /v0.1/* location                                          │
 │     └─ auth_request /validate  ────────────────┐            │
 └────────────────────┬───────────────────────────┼────────────┘
                      │                            │
@@ -80,9 +80,9 @@ This implementation provides full compatibility with the [Anthropic MCP Registry
 
 | File | Changes |
 |------|---------|
-| `registry/main.py` | Registered {REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION} router |
+| `registry/main.py` | Registered v0.1 router |
 | `registry/auth/dependencies.py` | Added `nginx_proxied_auth()` function |
-| `docker/nginx_rev_proxy_*.conf` | Added `/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/` location with auth validation |
+| `docker/nginx_rev_proxy_*.conf` | Added `/v0.1/` location with auth validation |
 | `.gitignore` | Added `tests/reports/` |
 
 ---
@@ -93,7 +93,7 @@ All hardcoded values are centralized in `registry/constants.py`:
 
 ```python
 class RegistryConstants(BaseModel):
-    # Anthropic Registry API {REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION} constants
+    # Anthropic Registry API v0.1 constants
     ANTHROPIC_SERVER_NAMESPACE: str = "io.mcpgateway"
     ANTHROPIC_API_DEFAULT_LIMIT: int = 100
     ANTHROPIC_API_MAX_LIMIT: int = 1000
@@ -108,7 +108,7 @@ class RegistryConstants(BaseModel):
 ### 1. List Servers
 
 ```
-GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?cursor={cursor}&limit={limit}
+GET /v0.1/servers?cursor={cursor}&limit={limit}
 ```
 
 **Purpose**: List all MCP servers the authenticated user can access.
@@ -121,14 +121,14 @@ GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?cursor={cursor}&limit={l
 
 **Example**:
 ```bash
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?limit=5" \
+curl "http://localhost/v0.1/servers?limit=5" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 ### 2. List Server Versions
 
 ```
-GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/{serverName:path}/versions
+GET /v0.1/servers/{serverName:path}/versions
 ```
 
 **Purpose**: List all available versions for a specific server.
@@ -142,14 +142,14 @@ GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/{serverName:path}/versio
 
 **Example**:
 ```bash
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/io.mcpgateway%2Fatlassian/versions" \
+curl "http://localhost/v0.1/servers/io.mcpgateway%2Fatlassian/versions" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 ### 3. Get Server Version Details
 
 ```
-GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/{serverName:path}/versions/{version}
+GET /v0.1/servers/{serverName:path}/versions/{version}
 ```
 
 **Purpose**: Get detailed information for a specific server version.
@@ -162,7 +162,7 @@ GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/{serverName:path}/versio
 
 **Example**:
 ```bash
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/io.mcpgateway%2Fatlassian/versions/latest" \
+curl "http://localhost/v0.1/servers/io.mcpgateway%2Fatlassian/versions/latest" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -174,7 +174,7 @@ curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/io.mcp
 
 **Client → Nginx**:
 ```
-GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers
+GET /v0.1/servers
 Authorization: Bearer eyJhbGci...
 ```
 
@@ -182,7 +182,7 @@ Authorization: Bearer eyJhbGci...
 ```
 GET /validate
 X-Authorization: Bearer eyJhbGci...
-X-Original-URL: http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers
+X-Original-URL: http://localhost/v0.1/servers
 ```
 
 **Auth Server Processing**:
@@ -204,7 +204,7 @@ X-Auth-Method: keycloak
 
 **Nginx → FastAPI**:
 ```
-GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers
+GET /v0.1/servers
 X-User: service-account-mcp-gateway-m2m
 X-Scopes: mcp-servers-unrestricted/read mcp-servers-unrestricted/execute
 Authorization: Bearer eyJhbGci...
@@ -212,10 +212,10 @@ Authorization: Bearer eyJhbGci...
 
 ### 2. nginx Configuration
 
-**Critical Setup** in `/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/` location block:
+**Critical Setup** in `/v0.1/` location block:
 
 ```nginx
-location /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/ {
+location /v0.1/ {
     # Authenticate via auth-server
     auth_request /validate;
 
@@ -226,7 +226,7 @@ location /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/ {
     auth_request_set $auth_method $upstream_http_x_auth_method;
 
     # Forward to FastAPI with auth context
-    proxy_pass http://127.0.0.1:7860/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/;
+    proxy_pass http://127.0.0.1:7860/v0.1/;
     proxy_set_header X-User $auth_user;
     proxy_set_header X-Username $auth_username;
     proxy_set_header X-Scopes $auth_scopes;
@@ -294,7 +294,7 @@ def nginx_proxied_auth(
 
 ### Scope-Based Access Control
 
-**IMPORTANT**: {REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION} API uses `accessible_servers` (MCP scopes), NOT `accessible_services` (UI scopes).
+**IMPORTANT**: v0.1 API uses `accessible_servers` (MCP scopes), NOT `accessible_services` (UI scopes).
 
 ```python
 # CORRECT - Check against accessible_servers
@@ -471,13 +471,13 @@ def transform_to_server_list(
 
 **Example Flow**:
 ```
-Page 1: GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?limit=3
+Page 1: GET /v0.1/servers?limit=3
 ← Returns: servers A, B, C with nextCursor="C"
 
-Page 2: GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?cursor=C&limit=3
+Page 2: GET /v0.1/servers?cursor=C&limit=3
 ← Returns: servers D, E, F with nextCursor="F"
 
-Page 3: GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?cursor=F&limit=3
+Page 3: GET /v0.1/servers?cursor=F&limit=3
 ← Returns: servers G, H with nextCursor=null (end)
 ```
 
@@ -559,22 +559,22 @@ echo "Token: ${TOKEN:0:50}..."
 
 ```bash
 # 1. List servers with pagination
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?limit=5" \
+curl "http://localhost/v0.1/servers?limit=5" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 2. List versions for a server (note %2F = /)
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/io.mcpgateway%2Fatlassian/versions" \
+curl "http://localhost/v0.1/servers/io.mcpgateway%2Fatlassian/versions" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 3. Get specific version details
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/io.mcpgateway%2Fatlassian/versions/latest" \
+curl "http://localhost/v0.1/servers/io.mcpgateway%2Fatlassian/versions/latest" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 4. Test pagination
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?limit=2" \
+curl "http://localhost/v0.1/servers?limit=2" \
   -H "Authorization: Bearer $TOKEN" | jq '.metadata'
 # Get nextCursor and use it:
-curl "http://localhost/{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers?cursor=io.mcpgateway%2Fcurrenttime&limit=2" \
+curl "http://localhost/v0.1/servers?cursor=io.mcpgateway%2Fcurrenttime&limit=2" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -588,7 +588,7 @@ See [docs/design/anthropic-api-test-commands.md](anthropic-api-test-commands.md)
 
 ### Issue: 404 on versions endpoint
 
-**Symptom**: `GET /{REGISTRY_CONSTANTS.ANTHROPIC_API_VERSION}/servers/io.mcpgateway%2Fatlassian/versions` returns 404
+**Symptom**: `GET /v0.1/servers/io.mcpgateway%2Fatlassian/versions` returns 404
 
 **Cause**: Missing `:path` in route parameter
 
