@@ -1,6 +1,6 @@
 # Anthropic Registry API Test Commands
 
-> **Note**: The API version is defined in `registry/constants.py` as `ANTHROPIC_API_VERSION` for easy version management.
+> **Note**: The Anthropic API version is defined in `registry/constants.py` as `ANTHROPIC_API_VERSION` for easy version management.
 
 ## Overview
 

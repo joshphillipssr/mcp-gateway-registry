@@ -1,6 +1,6 @@
 # Anthropic MCP Registry API - Implementation Guide
 
-> **Note**: The API version (v0.1) is defined as a constant `ANTHROPIC_API_VERSION` in `registry/constants.py`. All code references this constant rather than hardcoding the version string.
+> **Note**: The Anthropic API version (v0.1) is defined as a constant `ANTHROPIC_API_VERSION` in `registry/constants.py`. All code references this constant rather than hardcoding the version string.
 
 ---
 
