@@ -74,7 +74,7 @@ This implementation provides full compatibility with the [Anthropic MCP Registry
 | `registry/api/v0.1_routes.py` | 3 REST endpoints with JWT auth |
 | `tests/unit/api/test_v0.1_routes.py` | API endpoint tests |
 | `tests/unit/services/test_transform_service.py` | Transformation tests |
-| `docs/design/anthropic-api-v0.1-test-commands.md` | 20 test scenarios with curl |
+| `docs/design/anthropic-api-v0-test-commands.md` | 20 test scenarios with curl |
 
 ### Modified Files
 
@@ -580,7 +580,7 @@ curl "http://localhost/v0.1/servers?cursor=io.mcpgateway%2Fcurrenttime&limit=2" 
 
 ### Comprehensive Test Suite
 
-See [docs/design/anthropic-api-v0.1-test-commands.md](anthropic-api-v0.1-test-commands.md) for 20 test scenarios.
+See [docs/design/anthropic-api-v0-test-commands.md](anthropic-api-v0-test-commands.md) for 20 test scenarios.
 
 ---
 
@@ -663,5 +663,5 @@ See [docs/design/anthropic-api-v0.1-test-commands.md](anthropic-api-v0.1-test-co
 - **Issue**: [#175 - Support Anthropic MCP Registry REST API v0.1](https://github.com/agentic-community/mcp-gateway-registry/issues/175)
 - **OpenAPI Spec**: https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/openapi.yaml
 - **API Guide**: https://github.com/modelcontextprotocol/registry/blob/main/docs/guides/consuming/use-rest-api.md
-- **Test Commands**: [anthropic-api-v0.1-test-commands.md](anthropic-api-v0.1-test-commands.md)
+- **Test Commands**: [anthropic-api-v0-test-commands.md](anthropic-api-v0-test-commands.md)
 - **Progress Notes**: [.scratchpad/anthropic-api-v0.1-jwt-auth-progress.md](../../.scratchpad/anthropic-api-v0.1-jwt-auth-progress.md)
