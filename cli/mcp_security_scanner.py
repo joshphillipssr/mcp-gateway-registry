@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 # Constants
-DEFAULT_ANALYZERS = "yara,llm"
+DEFAULT_ANALYZERS = "yara"
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 # Use absolute path relative to project root
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -115,7 +115,6 @@ def _run_mcp_scanner(
     env = os.environ.copy()
     if api_key:
         env[OPENAI_API_KEY_ENV] = api_key
-        env["MCP_SCANNER_LLM_API_KEY"] = api_key  # mcp-scanner expects this env var
 
     # Run scanner
     try:
