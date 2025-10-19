@@ -483,12 +483,15 @@ print(config.get('proxy_pass_url', ''))
 
     # Check if LLM analyzer is requested and API key is available
     if [[ "$analyzers" == *"llm"* ]]; then
-        if [ -z "$MCP_SCANNER_LLM_API_KEY" ]; then
+        if [ -z "$MCP_SCANNER_LLM_API_KEY" ] || [[ "$MCP_SCANNER_LLM_API_KEY" == *"your_"* ]] || [[ "$MCP_SCANNER_LLM_API_KEY" == *"placeholder"* ]]; then
             echo ""
-            print_error "LLM analyzer requested but MCP_SCANNER_LLM_API_KEY environment variable is not set"
+            print_error "LLM analyzer requested but MCP_SCANNER_LLM_API_KEY is not configured"
+            print_info "Current value: ${MCP_SCANNER_LLM_API_KEY:-<not set>}"
+            print_info ""
             print_info "Options:"
-            print_info "  1. Set the environment variable: export MCP_SCANNER_LLM_API_KEY=sk-..."
-            print_info "  2. Use only YARA analyzer: $0 add $config_file yara"
+            print_info "  1. Add real API key to .env file: MCP_SCANNER_LLM_API_KEY=sk-..."
+            print_info "  2. Set environment variable: export MCP_SCANNER_LLM_API_KEY=sk-..."
+            print_info "  3. Use only YARA analyzer: $0 add $config_file yara"
             exit 1
         fi
     fi
@@ -817,13 +820,18 @@ scan_server_security() {
 
     # Check if LLM analyzer is requested and API key is available
     if [[ "$analyzers" == *"llm"* ]]; then
-        if [ -z "$MCP_SCANNER_LLM_API_KEY" ] && [ -z "$api_key" ]; then
+        # Check both environment variable and CLI argument
+        local key_to_check="${api_key:-$MCP_SCANNER_LLM_API_KEY}"
+        if [ -z "$key_to_check" ] || [[ "$key_to_check" == *"your_"* ]] || [[ "$key_to_check" == *"placeholder"* ]]; then
             echo ""
-            print_error "LLM analyzer requested but MCP_SCANNER_LLM_API_KEY environment variable is not set"
+            print_error "LLM analyzer requested but MCP_SCANNER_LLM_API_KEY is not configured"
+            print_info "Current value: ${MCP_SCANNER_LLM_API_KEY:-<not set>}"
+            print_info ""
             print_info "Options:"
-            print_info "  1. Set the environment variable: export MCP_SCANNER_LLM_API_KEY=sk-..."
-            print_info "  2. Pass API key as argument: $0 scan $server_url $analyzers sk-your-key"
-            print_info "  3. Use only YARA analyzer: $0 scan $server_url yara"
+            print_info "  1. Add real API key to .env file: MCP_SCANNER_LLM_API_KEY=sk-..."
+            print_info "  2. Set environment variable: export MCP_SCANNER_LLM_API_KEY=sk-..."
+            print_info "  3. Pass API key as argument: $0 scan $server_url $analyzers sk-your-key"
+            print_info "  4. Use only YARA analyzer: $0 scan $server_url yara"
             return 1
         fi
     fi

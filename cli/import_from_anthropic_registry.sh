@@ -131,12 +131,15 @@ command -v curl >/dev/null || { print_error "curl required"; exit 1; }
 
 # Check if LLM analyzer is requested and API key is available
 if [[ "$ANALYZERS" == *"llm"* ]]; then
-    if [ -z "$MCP_SCANNER_LLM_API_KEY" ]; then
+    if [ -z "$MCP_SCANNER_LLM_API_KEY" ] || [[ "$MCP_SCANNER_LLM_API_KEY" == *"your_"* ]] || [[ "$MCP_SCANNER_LLM_API_KEY" == *"placeholder"* ]]; then
         echo ""
-        print_error "LLM analyzer requested but MCP_SCANNER_LLM_API_KEY environment variable is not set"
+        print_error "LLM analyzer requested but MCP_SCANNER_LLM_API_KEY is not configured"
+        print_info "Current value: ${MCP_SCANNER_LLM_API_KEY:-<not set>}"
+        print_info ""
         print_info "Options:"
-        print_info "  1. Set the environment variable: export MCP_SCANNER_LLM_API_KEY=sk-..."
-        print_info "  2. Use only YARA analyzer: $0 --analyzers yara"
+        print_info "  1. Add real API key to .env file: MCP_SCANNER_LLM_API_KEY=sk-..."
+        print_info "  2. Set environment variable: export MCP_SCANNER_LLM_API_KEY=sk-..."
+        print_info "  3. Use only YARA analyzer: $0 --analyzers yara"
         exit 1
     fi
 fi
