@@ -2,66 +2,30 @@ import React from "react";
 import { Box, Text } from "ink";
 
 export function Banner() {
+  const width = Math.min(process.stdout.columns || 80, 80);
+  const separator = "═".repeat(width);
+
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text bold color="cyan">
-          ╔══════════════════════════════════════════════════════════════════════════════╗
-        </Text>
+        <Text bold color="cyan">{separator}</Text>
       </Box>
       <Box>
-        <Text bold color="cyan">║  </Text>
         <Text bold color="white">
-          __  __  ___  ___     ___         _     _
+          {"\n"}
+          {"   __  __  ___ ___    ___         _    _                                  \n"}
+          {"  |  \\/  |/ __| _ \\  | _ \\___ __ _ (_)__| |_ _ _ _  _                   \n"}
+          {"  | |\\/| | (__|  _/  |   / -_) _` || (_-<  _| '_| || |                   \n"}
+          {"  |_|  |_|\\___|_|    |_|_\\___\\__, ||_/__/\\__|_|  \\_, |                  \n"}
+          {"                              |___/              |__/                     \n"}
+          {"            /_\\   ______ (_)__| |_ __ _ _ _| |_                          \n"}
+          {"           / _ \\ (_-< (_-< | (_-<  _/ _` | ' \\  _|                       \n"}
+          {"          /_/ \\_\\/__/ /__/_|/__/\\__\\__,_|_||_\\__|                       \n"}
+          {"\n"}
         </Text>
-        <Text bold color="cyan">  ║</Text>
       </Box>
       <Box>
-        <Text bold color="cyan">║  </Text>
-        <Text bold color="white">
-          |  \/  |/ __|/ _ \   | _ \___ __(_)___| |_ _ _ _  _
-        </Text>
-        <Text bold color="cyan">  ║</Text>
-      </Box>
-      <Box>
-        <Text bold color="cyan">║  </Text>
-        <Text bold color="white">
-          | |\/| | (__| (_) |  |   / -_) _| (_-&lt;  _| '_| || |
-        </Text>
-        <Text bold color="cyan">  ║</Text>
-      </Box>
-      <Box>
-        <Text bold color="cyan">║  </Text>
-        <Text bold color="white">
-          |_|  |_|\___|\___/   |_|_\___\__|_/__/\__|_|  \_, |
-        </Text>
-        <Text bold color="cyan">  ║</Text>
-      </Box>
-      <Box>
-        <Text bold color="cyan">║  </Text>
-        <Text bold color="white">
-           /_\  ___ ___ (_)__| |_ __ _ _ _| |_         |__/
-        </Text>
-        <Text bold color="cyan">  ║</Text>
-      </Box>
-      <Box>
-        <Text bold color="cyan">║  </Text>
-        <Text bold color="white">
-          / _ \(_-&lt;(_-&lt; | (_-&lt;  _/ _` | ' \  _|
-        </Text>
-        <Text bold color="cyan">  ║</Text>
-      </Box>
-      <Box>
-        <Text bold color="cyan">║  </Text>
-        <Text bold color="white">
-         /_/ \_/__//__/_|/__/\__\__,_|_||_\__|
-        </Text>
-        <Text bold color="cyan">  ║</Text>
-      </Box>
-      <Box>
-        <Text bold color="cyan">
-          ╚══════════════════════════════════════════════════════════════════════════════╝
-        </Text>
+        <Text bold color="cyan">{separator}</Text>
       </Box>
     </Box>
   );
