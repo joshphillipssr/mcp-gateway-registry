@@ -222,7 +222,8 @@ The generated security report includes:
 
 **Example Report Summary:**
 
-```markdown
+---
+
 # MCP Server Security Scan Report
 
 **Scan Date:** 2025-10-21 23:50:03 UTC
@@ -242,7 +243,8 @@ The generated security report includes:
 | High | 3 |
 | Medium | 0 |
 | Low | 0 |
-```
+
+---
 
 These reports enable security teams to track vulnerability trends, prioritize remediation efforts, and maintain compliance with organizational security policies.
 
