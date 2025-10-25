@@ -15,13 +15,17 @@ export const AVAILABLE_COMMANDS: CommandOption[] = [
   { command: "/list", description: "List available MCP tools", category: "Basic" },
   { command: "/init", description: "Initialize MCP session", category: "Basic" },
   { command: "/call", description: "Call an MCP tool", category: "Basic" },
+  { command: "/call tool=", description: "Specify tool name", category: "Basic" },
+  { command: "/call tool=<name> args=", description: "Specify tool arguments as JSON", category: "Basic" },
   { command: "/exit", description: "Exit the CLI", category: "Basic" },
   { command: "/quit", description: "Exit the CLI (alias for /exit)", category: "Basic" },
   { command: "/retry", description: "Retry authentication", category: "Basic" },
 
   // Service commands
   { command: "/service add", description: "Add a new service", category: "Service" },
+  { command: "/service add configPath=", description: "Config file path (e.g., cli/examples/server-config.json)", category: "Service" },
   { command: "/service delete", description: "Delete a service", category: "Service" },
+  { command: "/service delete servicePath=", description: "Service path (e.g., /example-server)", category: "Service" },
   { command: "/service monitor", description: "Monitor service status", category: "Service" },
   { command: "/service test", description: "Test a service", category: "Service" },
   { command: "/service add-groups", description: "Add groups to service", category: "Service" },
@@ -44,6 +48,12 @@ export const AVAILABLE_COMMANDS: CommandOption[] = [
   // Diagnostic commands
   { command: "/diagnostic run-suite", description: "Run diagnostic test suite", category: "Diagnostic" },
   { command: "/diagnostic run-test", description: "Run specific diagnostic test", category: "Diagnostic" },
+
+  // Parameter hints for diagnostic run-test
+  { command: "/diagnostic run-test tokenFile=", description: "Token file path (e.g., .oauth-tokens/ingress.json)", category: "Diagnostic" },
+  { command: "/diagnostic run-test tokenFile=.oauth-tokens/ingress.json testName=", description: "Test name (e.g., list-servers)", category: "Diagnostic" },
+  { command: "/diagnostic run-test tokenFile=.oauth-tokens/ingress.json testName=list-servers", description: "Lists all servers", category: "Diagnostic" },
+  { command: "/diagnostic run-test tokenFile=.oauth-tokens/ingress.json testName=get-server", description: "Get specific server details", category: "Diagnostic" },
 ];
 
 /**
