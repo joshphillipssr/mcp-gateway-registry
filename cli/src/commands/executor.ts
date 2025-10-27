@@ -115,6 +115,6 @@ export function overviewMessage(): string {
     "  /user <subcommand>            User management (create-m2m, create-human, delete, list)",
     "  /diagnostic <subcommand>      Run diagnostics (run-suite, run-test)",
     "",
-    "💡 Tip: Use natural language when ANTHROPIC_API_KEY is set to let Claude decide which tools to call."
+    "Tip: Use natural language when ANTHROPIC_API_KEY is set to let Claude decide which tools to call."
   ].join("\n");
 }

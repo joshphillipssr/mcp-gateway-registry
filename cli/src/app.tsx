@@ -346,7 +346,7 @@ export default function App({options}: AppProps) {
         {commandSuggestions.length > 0 && commandSuggestions[selectedSuggestionIndex] && (
           <Box marginTop={1}>
             <Text color="cyan" dimColor>
-              💡 {commandSuggestions[selectedSuggestionIndex].command}
+              {commandSuggestions[selectedSuggestionIndex].command}
             </Text>
             <Text color="gray" dimColor>
               {" — "}
