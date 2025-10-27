@@ -48,7 +48,6 @@ export default function App({options}: AppProps) {
   const [initialised, setInitialised] = useState(false);
   const [commandSuggestions, setCommandSuggestions] = useState<ReturnType<typeof getCommandSuggestions>>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
-  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
 
   // Token status state
   const [tokenSecondsRemaining, setTokenSecondsRemaining] = useState<number | undefined>();
@@ -209,6 +208,55 @@ export default function App({options}: AppProps) {
     }
   }, [inputValue]);
 
+  // Timer effect to update token status every second
+  useEffect(() => {
+    if (authState.status !== "ready") return;
+
+    const gatewayInspection = authState.context.inspections.find(i => i.label.includes("Gateway"));
+    if (gatewayInspection) {
+      // Initialize token status on mount
+      const now = Date.now() / 1000;
+      const expiresAt = gatewayInspection.expiresAt ? gatewayInspection.expiresAt.getTime() / 1000 : 0;
+      const remaining = Math.floor(expiresAt - now);
+      setTokenSecondsRemaining(remaining);
+      setTokenExpired(remaining <= 0);
+      setTokenSource(authState.context.gatewaySource);
+    }
+
+    const interval = setInterval(() => {
+      if (authState.status !== "ready") return;
+
+      const gatewayInspection = authState.context.inspections.find(i => i.label.includes("Gateway"));
+      if (gatewayInspection) {
+        const now = Date.now() / 1000;
+        const expiresAt = gatewayInspection.expiresAt ? gatewayInspection.expiresAt.getTime() / 1000 : 0;
+        const remaining = Math.floor(expiresAt - now);
+        setTokenSecondsRemaining(remaining);
+        setTokenExpired(remaining <= 0);
+
+        // Auto-refresh when <= 10 seconds remaining
+        if (shouldRefreshToken(remaining) && !isRefreshingToken) {
+          setIsRefreshingToken(true);
+          refreshTokens()
+            .then((result) => {
+              if (result.success) {
+                setLastTokenRefresh(new Date());
+                // Trigger auth reload
+                setAuthAttempt((attempt) => attempt + 1);
+                setInitialised(false);
+              }
+              setIsRefreshingToken(false);
+            })
+            .catch(() => {
+              setIsRefreshingToken(false);
+            });
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [authState, isRefreshingToken, setAuthAttempt]);
+
   useInput(
     (input, key) => {
       if (key.ctrl && input === "c") {
@@ -291,32 +339,7 @@ export default function App({options}: AppProps) {
         return;
       }
 
-      // Check if token needs refresh before executing command (silently handled by footer)
-      const gatewayInspection = authState.context.inspections.find(i => i.label.includes("Gateway"));
-      if (gatewayInspection && shouldRefreshToken(gatewayInspection.secondsRemaining)) {
-        setIsRefreshingToken(true);
-        try {
-          const result = await refreshTokens();
-          if (result.success) {
-            setLastTokenRefresh(new Date());
-            // Store the pending command to execute after auth reloads
-            setPendingCommand(trimmed);
-            // Trigger auth reload and mark as not initialized so it re-checks
-            setAuthAttempt((attempt) => attempt + 1);
-            setInitialised(false);
-            setIsRefreshingToken(false);
-            return;
-          } else {
-            addMessage("assistant", `❌ Token refresh failed: ${result.message}`);
-            setIsRefreshingToken(false);
-            return;
-          }
-        } catch (error) {
-          addMessage("assistant", `❌ Token refresh error: ${(error as Error).message}`);
-          setIsRefreshingToken(false);
-          return;
-        }
-      }
+      // Token refresh is now handled automatically by the timer effect in the footer
 
       const commandContext: CommandExecutionContext = {
         gatewayUrl,
@@ -488,6 +511,18 @@ export default function App({options}: AppProps) {
             </Text>
           </Box>
         )}
+        {authState.status === "ready" && (
+          <Box marginTop={1}>
+            <TokenStatusFooter
+              secondsRemaining={tokenSecondsRemaining}
+              expired={tokenExpired}
+              isRefreshing={isRefreshingToken}
+              lastRefresh={lastTokenRefresh}
+              source={tokenSource}
+              model={getDefaultModel(getDefaultProvider())}
+            />
+          </Box>
+        )}
       </Box>
     </Box>
   );
@@ -507,7 +542,7 @@ function buildAgentHistory(messages: ChatMessage[]): AgentMessage[] {
     }));
 }
 
-function summariseAuth(authState: AuthReadyState, gatewayUrl: string): string[] {
+function summariseAuth(_authState: AuthReadyState, gatewayUrl: string): string[] {
   // Simplified - only show gateway URL and help. Token/model info shown in footer
   const lines = [`Authenticated against ${gatewayUrl}`];
   lines.push("");

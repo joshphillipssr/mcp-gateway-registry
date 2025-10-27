@@ -63,14 +63,11 @@ export function TokenStatusFooter({
       <Text color="gray" dimColor>
         | Last refresh: {lastRefreshText}
       </Text>
-<<<<<<< HEAD
       {model && (
         <Text color="gray" dimColor>
           | Model: {model}
         </Text>
       )}
-=======
->>>>>>> 35b416886c7aafddee7f6c368fc6cc0946e307fd
     </Box>
   );
 }
