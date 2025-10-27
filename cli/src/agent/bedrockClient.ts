@@ -10,11 +10,9 @@ export function getBedrockClient(): BedrockRuntimeClient {
   // AWS SDK will automatically use credentials from environment variables:
   // AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
   // Or from ~/.aws/credentials or EC2/ECS instance metadata
-  // For Isengard users, credentials are automatically loaded from ~/.aws/credentials
-  // after running: isengard credentials export --account <account-id> --role <role>
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
 
-  // Support for explicit profile (useful for Isengard multi-account setups)
+  // Support for explicit profile
   const profile = process.env.AWS_PROFILE;
 
   const clientConfig: any = {
@@ -22,7 +20,6 @@ export function getBedrockClient(): BedrockRuntimeClient {
   };
 
   // If a profile is specified, let the SDK handle it
-  // This works with Isengard-exported credentials
   if (profile) {
     // The AWS SDK will automatically load credentials from the profile
     clientConfig.profile = profile;

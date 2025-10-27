@@ -132,14 +132,13 @@ You: /exit
 
 > **⚠️ Prerequisites:** Build the CLI first (`npm install && npm run build`). OAuth tokens are generated automatically on first run!
 
-### For Amazon Internal Users (Isengard)
+### For Amazon Bedrock users
 
 ```bash
 # 1. Build the CLI
 cd cli && npm install && npm run build
 
-# 2. Export credentials from Isengard
-isengard credentials export --account <account-id> --role <role-name>
+# 2. Export credentials from AWS
 
 # 3. (Optional) Set region
 export AWS_REGION=us-west-2
@@ -201,7 +200,6 @@ npm start
 
 **Example 1: Use Opus for complex analysis**
 ```bash
-isengard credentials export --account 577638374636 --role nishdeb-role
 export AWS_REGION=us-west-2
 export BEDROCK_MODEL_ID=us.anthropic.claude-opus-4-1-20250805-v1:0
 npm start
@@ -209,14 +207,12 @@ npm start
 
 **Example 2: Use Haiku for quick queries**
 ```bash
-isengard credentials export --account 577638374636 --role nishdeb-role
 export BEDROCK_MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0
 npm start
 ```
 
 **Example 3: Default Haiku (no model specified)**
 ```bash
-isengard credentials export --account 577638374636 --role nishdeb-role
 npm start  # Uses Claude Haiku 4.5 by default (fastest)
 ```
 
@@ -229,7 +225,7 @@ The CLI automatically selects the AI provider based on available credentials:
 1. **AWS Bedrock (Default)** - If AWS credentials are found
    - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`
    - `AWS_PROFILE`
-   - Isengard-exported credentials
+   - AWS credentials from profile
    - EC2/ECS instance metadata
 
 2. **Anthropic API** - If only `ANTHROPIC_API_KEY` is set
@@ -252,24 +248,6 @@ npm start
 ---
 
 ## AWS Bedrock Setup
-
-### Option 1: Isengard (Amazon Internal)
-
-```bash
-# Export credentials for your account and role
-isengard credentials export --account <account-id> --role <role-name>
-
-# Example:
-isengard credentials export --account 577638374636 --role nishdeb-role
-
-# Set region (optional, defaults to us-east-1)
-export AWS_REGION=us-west-2
-
-# Verify credentials
-aws sts get-caller-identity
-```
-
-The CLI automatically uses credentials from `~/.aws/credentials` after Isengard export.
 
 ### Option 2: Environment Variables
 
@@ -417,7 +395,7 @@ AI: AWS Bedrock (bedrock) | Region: us-west-2 | Model: us.anthropic.claude-sonne
 AI: AWS Bedrock (EnvVars) | Region: us-east-1 | Model: us.anthropic.claude-opus-4-1-20250805-v1:0
 ```
 
-**Using AWS Bedrock with default/Isengard credentials:**
+**Using AWS Bedrock with default/AWS credentials:**
 ```
 AI: AWS Bedrock (Default) | Region: us-west-2 | Model: us.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
@@ -440,8 +418,7 @@ The startup message shows:
 ### Scenario 1: Switch from Bedrock to Anthropic API
 
 ```bash
-# Currently using Bedrock via Isengard
-isengard credentials export --account 123456789012 --role MyRole
+# Currently using Bedrock via AWS
 
 # Switch to Anthropic API
 unset AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
@@ -458,7 +435,6 @@ export ANTHROPIC_API_KEY=sk-ant-your-api-key-here
 
 # Switch to Bedrock
 unset ANTHROPIC_API_KEY
-isengard credentials export --account 123456789012 --role MyRole
 
 npm start  # Now uses Bedrock
 ```
@@ -467,8 +443,6 @@ npm start  # Now uses Bedrock
 
 ```bash
 # Export to specific profiles
-isengard credentials export --account 111111111111 --role Role1 --profile account1
-isengard credentials export --account 222222222222 --role Role2 --profile account2
 
 # Switch between accounts
 export AWS_PROFILE=account1
@@ -527,7 +501,6 @@ This means no valid AI model credentials were found.
 
 **Check:**
 - AWS credentials: Run `aws sts get-caller-identity` to verify
-- Isengard users: Run `isengard credentials export` to refresh credentials
 - Anthropic API: Verify `ANTHROPIC_API_KEY` is set
 - Environment: Ensure variables are exported in your current shell
 
@@ -540,7 +513,6 @@ aws sts get-caller-identity  # Verify AWS credentials
 echo $ANTHROPIC_API_KEY  # Should show your key
 
 # Re-export if needed
-isengard credentials export --account <account-id> --role <role>
 # OR
 export ANTHROPIC_API_KEY=sk-ant-your-key
 ```
@@ -566,30 +538,10 @@ aws bedrock list-inference-profiles --region us-west-2
 aws bedrock list-foundation-models --region us-west-2 | grep claude
 ```
 
-**For Isengard users:**
+****
 - Ensure your role has Bedrock permissions
 - Contact your team admin to grant access
 - Check if Bedrock is enabled in your AWS account
-
-### Isengard Credentials Expired
-
-Isengard credentials are temporary and expire.
-
-**Symptoms:**
-- "ExpiredToken" errors
-- "The security token included in the request is expired"
-
-**Fix:**
-```bash
-# Check current credentials
-aws sts get-caller-identity
-
-# If expired, re-export
-isengard credentials export --account <account-id> --role <role-name>
-
-# Verify new credentials
-aws sts get-caller-identity
-```
 
 ### Model Not Found / Invalid Request
 
@@ -652,25 +604,6 @@ export AWS_PROFILE=your-profile
 
 # Verify on startup - check the "AI Provider:" line
 npm start
-```
-
-### Common Isengard Commands
-
-```bash
-# Check current credentials
-aws sts get-caller-identity
-
-# Re-export credentials
-isengard credentials export --account <account-id> --role <role-name>
-
-# List available profiles
-cat ~/.aws/credentials
-
-# Test Bedrock access
-aws bedrock list-inference-profiles --region us-west-2
-
-# Test with specific profile
-AWS_PROFILE=myprofile aws sts get-caller-identity
 ```
 
 ---
@@ -736,7 +669,7 @@ export ANTHROPIC_MODEL=claude-opus-4-20250514
 - **AWS Bedrock Documentation:** https://docs.aws.amazon.com/bedrock/
 - **Anthropic API Documentation:** https://docs.anthropic.com/
 - **Anthropic Console:** https://console.anthropic.com/
-- **Isengard Documentation:** Internal Amazon wiki
+- **AWS Documentation:** Internal Amazon wiki
 - **AWS CLI Reference:** https://docs.aws.amazon.com/cli/
 
 For issues or questions, open a GitHub issue on the project repository.
