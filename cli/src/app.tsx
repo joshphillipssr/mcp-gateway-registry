@@ -89,7 +89,7 @@ export default function App({options}: AppProps) {
 
         // Check if we have a gateway token - if not, try to generate one
         if (!context.gatewayToken || context.gatewaySource === "none") {
-          addMessage("assistant", "⚠️  No gateway token found. Attempting automatic generation...");
+          addMessage("assistant", "No gateway token found. Attempting automatic generation...");
 
           try {
             const result = await refreshTokens();
@@ -115,7 +115,7 @@ export default function App({options}: AppProps) {
 
         // If auth failed due to missing or invalid tokens, try to refresh automatically
         if (errorMessage.includes("token") || errorMessage.includes("ENOENT") || errorMessage.includes("Failed to load")) {
-          addMessage("assistant", "⚠️  OAuth tokens missing or invalid. Attempting automatic generation...");
+          addMessage("assistant", "OAuth tokens missing or invalid. Attempting automatic generation...");
 
           try {
             const result = await refreshTokens();
@@ -401,7 +401,7 @@ export default function App({options}: AppProps) {
 
           // Display token usage if available
           if (result.tokenUsage) {
-            const tokenInfo = `📊 Tokens: ${result.tokenUsage.input_tokens.toLocaleString()} in / ${result.tokenUsage.output_tokens.toLocaleString()} out / ${result.tokenUsage.total_tokens.toLocaleString()} total`;
+            const tokenInfo = `Tokens: ${result.tokenUsage.input_tokens.toLocaleString()} in / ${result.tokenUsage.output_tokens.toLocaleString()} out / ${result.tokenUsage.total_tokens.toLocaleString()} total`;
             addMessage("system", tokenInfo);
           }
         }

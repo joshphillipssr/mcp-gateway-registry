@@ -26,10 +26,10 @@ export function TokenStatusFooter({
   };
 
   const getStatusIcon = (): string => {
-    if (isRefreshing) return "🔄";
+    if (isRefreshing) return "";
     if (expired || (secondsRemaining !== undefined && secondsRemaining <= 0)) return "❌";
-    if (secondsRemaining !== undefined && secondsRemaining < 60) return "⚠️";
-    return "🔑";
+    if (secondsRemaining !== undefined && secondsRemaining < 60) return "";
+    return "✅";
   };
 
   const getStatusText = (): string => {
@@ -50,10 +50,12 @@ export function TokenStatusFooter({
     ? lastRefresh.toLocaleTimeString("en-US", {hour12: false})
     : "N/A";
 
+  const icon = getStatusIcon();
+
   return (
     <Box flexDirection="row" gap={1}>
       <Text color={getStatusColor()}>
-        {getStatusIcon()} Token: {getStatusText()}
+        {icon && `${icon} `}Token: {getStatusText()}
       </Text>
       {source && (
         <Text color="gray" dimColor>
