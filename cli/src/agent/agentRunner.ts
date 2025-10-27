@@ -49,7 +49,7 @@ export async function runAgentTurn(history: AgentMessage[], config: AgentConfig)
     conversation.push({ role: "user", content: history.filter((msg) => msg.role !== "system").map((msg) => msg.content).join("\n") || "Hello." });
   }
 
-  while (toolIteration < 5) {
+  while (toolIteration < 25) {
     const response = await (client as any).beta.tools.messages.create({
       model: config.model ?? DEFAULT_MODEL,
       system: systemPrompt,
@@ -93,7 +93,7 @@ export async function runAgentTurn(history: AgentMessage[], config: AgentConfig)
     toolIteration += 1;
   }
 
-  if (toolIteration >= 5) {
+  if (toolIteration >= 25) {
     finalMessages.push({ role: "assistant", content: "Reached tool usage limit without final response." });
   }
 
