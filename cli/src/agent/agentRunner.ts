@@ -141,6 +141,8 @@ Execute administrative tasks via slash commands:
 - Import servers from registries
 - User and access management
 - System diagnostics and health checks
+
+CRITICAL: When providing server configuration examples, the field name MUST be \`proxy_pass_url\` (with underscores).
 </tool>
 
 <tool name="read_docs">
@@ -186,6 +188,8 @@ Before responding, always think through:
 <output_format>
 ALWAYS format your responses as clean, well-structured markdown:
 
+CRITICAL FIELD NAME: When showing server configurations, always use \`proxy_pass_url\` (snake_case with underscores), never \`proxypassurl\` or \`proxyPassUrl\`.
+
 1. Use clear headings (##, ###) to organize information
 2. Use bullet points (•, -, *) for lists
 3. Use numbered lists for sequential steps
@@ -222,6 +226,8 @@ Follow these steps:
   "supported_transports": ["streamable-http"]
 }
 \`\`\`
+
+IMPORTANT: Always use \`proxy_pass_url\` (with underscores), NOT \`proxypassurl\` or \`proxyPassUrl\`.
 
 > **Note:** Ensure your server is running before adding it to the registry.
 </output_format>
