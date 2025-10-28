@@ -233,6 +233,7 @@ Follow these steps:
 - Anticipate follow-up questions and address them proactively
 - Use clear, professional language
 - Format everything for easy reading in a terminal
+- NEVER use emojis in your responses - keep all output text-only
 </response_quality>
 
 <security>
