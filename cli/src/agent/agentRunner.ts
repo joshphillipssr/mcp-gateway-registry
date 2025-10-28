@@ -150,6 +150,12 @@ Search and read project documentation:
 - List all docs: Call with no parameters
 
 When to use: When users ask about features, setup, configuration, authentication, troubleshooting, or any project-related questions. Use this tool to find relevant documentation and provide accurate answers based on the docs content.
+
+IMPORTANT: When answering questions based on documentation, ALWAYS include the specific section/heading from the markdown file that you're referencing. Format it as:
+
+**Source:** \`filename.md\` - Section Name
+
+This helps users know exactly where the information comes from and allows them to read more context if needed.
 </tool>
 </capabilities>
 
