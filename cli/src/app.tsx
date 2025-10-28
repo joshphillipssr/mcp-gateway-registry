@@ -380,7 +380,7 @@ export default function App({options}: AppProps) {
       if (!agentAvailable) {
         addMessage(
           "assistant",
-          "Agent mode is disabled. Configure AWS_PROFILE, ensure execution role is available, or set ANTHROPIC_API_KEY/LLM_API_KEY. Alternatively, use slash commands like /ping."
+          "Agent mode is disabled. Configure AWS_PROFILE, ensure execution role is available, or set ANTHROPIC_API_KEY. Alternatively, use slash commands like /ping."
         );
         return;
       }
