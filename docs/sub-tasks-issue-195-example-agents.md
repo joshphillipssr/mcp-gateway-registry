@@ -13,6 +13,16 @@ Build two production-ready example A2A agents using Strands framework, container
 - **Runtime**: AgentCore (deployment platform)
 - **Registry**: MCP Gateway A2A Registry (discovery & registration)
 - **Search**: Semantic search for agent discovery
+- **Data Storage**: SQLite (in-process embedded database)
+- **Data**: Simulated/seed data included in container images
+
+**Data Approach**:
+- All agents work with **simulated/synthetic data** - no external dependencies
+- Flight inventory, availability, and bookings stored in **embedded SQLite database**
+- Seed data (flights, prices, customer profiles) initialized when container starts
+- Each container is self-contained with its own SQLite database
+- Data persists within container lifetime (no data persistence across restarts)
+- Ready to demonstrate complete workflows without external database setup
 
 ## Sub-Issues to Create
 
@@ -31,8 +41,16 @@ Build two production-ready example A2A agents using Strands framework, container
 - Uses semantic search to discover "flight booking", "reservation" agents
 - Exposes REST API following A2A protocol
 
+**Data**:
+- Simulated flight data (20+ flights with various routes, airlines, prices)
+- Seed customer data for testing
+- Initial availability and booking data
+- Embedded SQLite database with schema initialization
+
 **Containerization**:
 - Dockerfile with Strands runtime environment
+- SQLite database file included in image
+- Seed data initialization script on container startup
 - Environment variables for registry configuration
 - Port exposure for API access
 
@@ -71,10 +89,18 @@ Build two production-ready example A2A agents using Strands framework, container
 - Exposes REST API following A2A protocol
 - Can be discovered by Travel Assistant via semantic search
 
+**Data**:
+- Simulated airline inventory (fleet, routes, schedules)
+- Pre-populated flight availability database
+- Simulated customer booking history
+- Test payment processing data
+- Embedded SQLite database for all operations
+
 **Containerization**:
 - Dockerfile with Strands runtime environment
-- Database connection for inventory/reservations
-- Environment variables for registry and payment credentials
+- SQLite database file with flight inventory schema
+- Seed data initialization on container startup
+- Environment variables for registry and payment simulation
 - Port exposure for API access
 
 **Deployment**:
@@ -308,19 +334,26 @@ Build two production-ready example A2A agents using Strands framework, container
 - **Runtime Environment**: AgentCore
 - **Registry**: MCP Gateway A2A Registry
 - **Search**: Semantic search (FAISS)
+- **Data Storage**: SQLite (embedded, in-process)
 - **Metrics**: Prometheus + SQLite
 - **Visualization**: Grafana + Custom Dashboard
 - **Communication**: REST API (A2A Protocol)
+- **Data Approach**: Simulated/seed data included in containers
 
 ## Notes
 - Both agents built with Strands for consistency and best practices
 - Docker containerization enables easy deployment and scaling
+- **No external dependencies**: All data is simulated and embedded in containers
+- **SQLite in-process database**: Lightweight, embedded, no server needed
+- Each container is completely self-contained and ready to run
 - AgentCore runtime provides production-grade execution environment
 - A2A Registry enables true decentralized agent discovery
 - Semantic search makes agents discoverable by capability, not just name
 - Real-world travel booking use case demonstrates practical value
 - Metrics and visualization provide operational visibility
 - Example agents serve as templates for users building similar systems
+- Simulated data makes agents ideal for demonstrations and testing
+- No configuration needed - just run the containers
 
 ## Related
 - Main Issue: #195 - Add A2A Protocol Support to Registry
