@@ -189,15 +189,16 @@ def list_agents(
 
             if agents:
                 print(f"Found {total_count} agent(s):")
-                print("-" * 80)
+                print("-" * 120)
+                print(f"{'Agent Name':<40} | {'Path':<25} | {'Status':<8}")
+                print("-" * 120)
                 for agent in agents:
                     name = agent.get("name", "unknown")
-                    description = agent.get("description", "")
-                    num_skills = agent.get("num_skills", 0)
-                    print(f"  {name:40} | {num_skills} skill(s)")
-                    if description:
-                        print(f"    {description[:70]}")
-                print("-" * 80)
+                    path = agent.get("path", "unknown")
+                    is_enabled = agent.get("is_enabled", False)
+                    status = "ENABLED" if is_enabled else "DISABLED"
+                    print(f"{name:<40} | {path:<25} | {status:<8}")
+                print("-" * 120)
             else:
                 print("No agents found")
         elif response.status_code == 401:
