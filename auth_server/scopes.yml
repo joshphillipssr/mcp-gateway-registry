@@ -78,10 +78,15 @@ group_mappings:
   - mcp-servers-restricted/execute
   a2a-agent-admin:
   - a2a-agent-admin
+  - mcp-servers-unrestricted/read
+  - mcp-servers-unrestricted/execute
   a2a-agent-publisher:
   - a2a-agent-publisher
+  - mcp-servers-restricted/read
+  - mcp-servers-restricted/execute
   a2a-agent-user:
   - a2a-agent-user
+  - mcp-servers-restricted/read
 mcp-servers-unrestricted/read:
 - server: auth_server
   methods:
