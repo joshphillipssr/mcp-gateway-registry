@@ -112,6 +112,8 @@ const AgentCard: React.FC<AgentCardProps> = ({
   const [showDetails, setShowDetails] = useState(false);
   const [selectedIDE, setSelectedIDE] = useState<'vscode' | 'cursor' | 'cline' | 'claude-code'>('vscode');
   const [loadingRefresh, setLoadingRefresh] = useState(false);
+  const [fullAgentDetails, setFullAgentDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const getStatusIcon = () => {
     switch (agent.status) {
@@ -378,7 +380,21 @@ const AgentCard: React.FC<AgentCardProps> = ({
 
             {/* Full Details Button */}
             <button
-              onClick={() => setShowDetails(true)}
+              onClick={async () => {
+                setShowDetails(true);
+                setLoadingDetails(true);
+                try {
+                  const response = await axios.get(`/api/agents${agent.path}`);
+                  setFullAgentDetails(response.data);
+                } catch (error) {
+                  console.error('Failed to fetch agent details:', error);
+                  if (onShowToast) {
+                    onShowToast('Failed to load full agent details', 'error');
+                  }
+                } finally {
+                  setLoadingDetails(false);
+                }
+              }}
               className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-700/50 rounded-lg transition-all duration-200 flex-shrink-0"
               title="View full agent details (JSON)"
             >
@@ -555,7 +571,8 @@ const AgentCard: React.FC<AgentCardProps> = ({
                   <button
                     onClick={() => {
                       try {
-                        navigator.clipboard.writeText(JSON.stringify(agent, null, 2));
+                        const dataToCopy = fullAgentDetails || agent;
+                        navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
                         if (onShowToast) {
                           onShowToast('Full agent JSON copied to clipboard!', 'success');
                         }
@@ -572,9 +589,15 @@ const AgentCard: React.FC<AgentCardProps> = ({
                   </button>
                 </div>
 
-                <pre className="p-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg overflow-x-auto text-xs text-gray-900 dark:text-gray-100 max-h-[50vh] overflow-y-auto">
-                  {JSON.stringify(agent, null, 2)}
-                </pre>
+                {loadingDetails ? (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg text-center text-gray-600 dark:text-gray-400">
+                    Loading full agent details...
+                  </div>
+                ) : (
+                  <pre className="p-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg overflow-x-auto text-xs text-gray-900 dark:text-gray-100 max-h-[50vh] overflow-y-auto">
+                    {JSON.stringify(fullAgentDetails || agent, null, 2)}
+                  </pre>
+                )}
               </div>
 
               {/* Field Legend */}
