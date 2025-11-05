@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
   title: Authentication & Login API
-  description: OAuth2 and session-based authentication endpoints for user login/logout and provider management
-  version: 1.0.0
+  description: OAuth2, session-based, and JWT token authentication endpoints for user login/logout, provider management, and API access
+  version: 1.1.0
   contact:
     name: MCP Gateway Registry
   license:
@@ -23,6 +23,8 @@ tags:
     description: OAuth2 authentication flow
   - name: Providers
     description: Authentication provider information
+  - name: Token Generation
+    description: JWT token generation endpoints (API access)
 
 paths:
   /api/auth/login:
@@ -209,6 +211,138 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/auth/token:
+    post:
+      tags:
+        - Token Generation
+      summary: Get JWT token using username and password
+      description: Generate JWT token directly using username and password credentials (OAuth2 Resource Owner Password Credentials flow). Intended for CLI tools, scripts, and external services that need API access without browser login.
+      operationId: getTokenDirect
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: Username
+                password:
+                  type: string
+                  format: password
+                  description: Password
+                grant_type:
+                  type: string
+                  enum: [password]
+                  default: password
+                  description: OAuth2 grant type (must be password)
+                requested_scopes:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional list of requested scopes (e.g., [publish_agent, modify_service])
+                expires_in_hours:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+                  default: 8
+                  description: Token expiration time in hours
+      responses:
+        '200':
+          description: JWT token successfully generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication failed - invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Token generation server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/m2m:
+    post:
+      tags:
+        - Token Generation
+      summary: Get JWT token using client credentials (Machine-to-Machine)
+      description: Generate JWT token for service-to-service authentication using client credentials (OAuth2 Client Credentials flow). Intended for automated services, CI/CD pipelines, and inter-service communication.
+      operationId: getM2MToken
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - client_id
+                - client_secret
+              properties:
+                client_id:
+                  type: string
+                  description: Keycloak client ID (e.g., mcp-gateway-m2m or agent-{name}-m2m)
+                client_secret:
+                  type: string
+                  format: password
+                  description: Keycloak client secret
+                grant_type:
+                  type: string
+                  enum: [client_credentials]
+                  default: client_credentials
+                  description: OAuth2 grant type (must be client_credentials)
+                requested_scopes:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional list of requested scopes (e.g., [publish_agent, modify_service])
+                expires_in_hours:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+                  default: 24
+                  description: Token expiration time in hours (longer default for M2M)
+      responses:
+        '200':
+          description: JWT token successfully generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/M2MTokenResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication failed - invalid client credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Token generation server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     SessionCookie:
@@ -304,3 +438,58 @@ components:
         request_id:
           type: string
           description: Unique request identifier
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token for API authentication
+        refresh_token:
+          type: string
+          description: Refresh token to get new access token when expired
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type (always Bearer)
+        scope:
+          type: string
+          description: Space-separated list of granted scopes
+        requested_scopes:
+          type: array
+          items:
+            type: string
+          description: List of requested scopes that were granted
+
+    M2MTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token for service-to-service authentication
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type (always Bearer)
+        scope:
+          type: string
+          description: Space-separated list of granted scopes
+        requested_scopes:
+          type: array
+          items:
+            type: string
+          description: List of requested scopes that were granted
