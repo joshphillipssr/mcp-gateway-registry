@@ -808,7 +808,7 @@ async def discover_agents_semantic(
             accessible_results.append(
                 {
                     **agent_info.model_dump(),
-                    "relevance_score": result.get("score", 0.0),
+                    "score": result.get("relevance_score", 0.0),
                 }
             )
 

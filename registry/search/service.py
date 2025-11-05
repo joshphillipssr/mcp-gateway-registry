@@ -465,9 +465,11 @@ class FaissService:
             # Encode query
             query_embedding = self.embedding_model.encode([query])
             query_np = np.array([query_embedding[0]], dtype=np.float32)
+            logger.info(f"Encoded query: {query}")
 
             # Search FAISS
             distances, ids = self.faiss_index.search(query_np, max_results)
+            logger.info(f"FAISS search returned {len(ids[0])} results for query: {query}")
 
             # Organize results by entity type
             results_by_type: Dict[str, List[Dict[str, Any]]] = {
@@ -498,24 +500,28 @@ class FaissService:
                     continue
 
                 # Build result entry
+                relevance_score = float(dist)
                 result_entry: Dict[str, Any] = {
                     "path": matching_key,
                     "entity_type": entity_type,
-                    "relevance_score": float(dist),
+                    "relevance_score": relevance_score,
                 }
 
                 if entity_type == "a2a_agent":
                     agent_card = matching_entry.get("full_agent_card")
                     if agent_card:
                         result_entry["agent_card"] = agent_card
+                    logger.info(f"Agent result: {matching_key} (distance={relevance_score:.4f})")
                     results_by_type["agents"].append(result_entry)
 
                 elif entity_type == "mcp_server":
                     server_info = matching_entry.get("full_server_info")
                     if server_info:
                         result_entry["server_info"] = server_info
+                    logger.info(f"Server result: {matching_key} (distance={relevance_score:.4f})")
                     results_by_type["servers"].append(result_entry)
 
+            logger.info(f"Final results - agents: {len(results_by_type['agents'])}, servers: {len(results_by_type['servers'])}")
             return results_by_type
 
         except Exception as e:
