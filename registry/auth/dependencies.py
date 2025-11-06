@@ -215,26 +215,6 @@ def get_ui_permissions_for_user(user_scopes: List[str]) -> Dict[str, List[str]]:
                         ui_permissions[permission].update(services)
                         logger.debug(f"UI permission '{permission}' granted for services: {services}")
 
-    # Handle A2A agent scopes (new agent permission mappings)
-    if 'a2a-agent-admin' in user_scopes:
-        # A2A admin can publish, modify, delete, and list agents
-        ui_permissions['publish_agent'] = ['all']
-        ui_permissions['modify_agent'] = ['all']
-        ui_permissions['delete_agent'] = ['all']
-        ui_permissions['list_agents'] = ['all']
-        logger.debug("A2A agent admin scope detected - granted all agent permissions")
-    elif 'a2a-agent-publisher' in user_scopes:
-        # A2A publisher can publish, modify, and list agents (no delete)
-        ui_permissions['publish_agent'] = ['all']
-        ui_permissions['modify_agent'] = ['all']
-        ui_permissions['list_agents'] = ['all']
-        logger.debug("A2A agent publisher scope detected - granted publish, modify, and list agent permissions")
-
-    # A2A list agents is available to all users with any A2A agent scope
-    if any('a2a-agent' in scope for scope in user_scopes):
-        ui_permissions['list_agents'] = ['all']
-        logger.debug("A2A agent user scope detected - granted list agents permission")
-
     # Convert sets back to lists
     result = {k: list(v) for k, v in ui_permissions.items()}
     logger.info(f"Final UI permissions for user: {result}")
