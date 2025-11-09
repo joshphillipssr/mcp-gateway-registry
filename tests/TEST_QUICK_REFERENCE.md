@@ -136,6 +136,49 @@ Quick run:
 bash tests/run-lob-bot-tests.sh
 ```
 
+## Agent CRUD Test
+
+Simple script to demonstrate all CRUD operations on an A2A agent:
+
+```bash
+bash tests/agent_crud_test.sh
+```
+
+**What it tests:**
+1. CREATE - Register new agent (POST /api/agents/register)
+2. READ - Retrieve agent details (GET /api/agents/{path})
+3. UPDATE - Modify agent (PUT /api/agents/{path})
+4. LIST - List all agents (GET /api/agents)
+5. TOGGLE - Disable agent (POST /api/agents/{path}/toggle)
+6. TOGGLE - Re-enable agent (POST /api/agents/{path}/toggle)
+7. DELETE - Remove agent (DELETE /api/agents/{path})
+8. VERIFY - Confirm deletion (GET /api/agents/{path} → 404)
+9. RE-CREATE - Restore agent to clean state (POST /api/agents/register)
+
+**Token usage:**
+```bash
+# Default (uses .oauth-tokens/admin-bot-token.json)
+bash tests/agent_crud_test.sh
+
+# With custom token path
+bash tests/agent_crud_test.sh /path/to/token.json
+
+# With environment variable
+TOKEN_FILE=/path/to/token.json bash tests/agent_crud_test.sh
+```
+
+**Features:**
+- Colored output with checkmarks and X marks
+- Pretty-printed JSON requests and responses
+- HTTP status code display
+- Automatic token expiration detection
+- 5-minute token validation with helpful regeneration messages
+
+**Verify results:**
+```bash
+cat registry/agents/agent_state.json | jq .
+```
+
 ## Test Logs Location
 
 All logs saved to `/tmp/`:

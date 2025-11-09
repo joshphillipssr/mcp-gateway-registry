@@ -7,9 +7,9 @@
 # Easy to run and see output for learning purposes
 #
 # Usage:
-#   bash tests/crud_test_simple.sh
-#   bash tests/crud_test_simple.sh /path/to/token.json
-#   TOKEN_FILE=/path/to/token.json bash tests/crud_test_simple.sh
+#   bash tests/agent_crud_test.sh
+#   bash tests/agent_crud_test.sh /path/to/token.json
+#   TOKEN_FILE=/path/to/token.json bash tests/agent_crud_test.sh
 #
 # Token Resolution (in order of precedence):
 #   1. Command-line argument (first parameter)
@@ -61,9 +61,9 @@ if [ ! -f "$TOKEN_FILE" ]; then
     echo "  ./keycloak/setup/generate-agent-token.sh admin-bot"
     echo ""
     echo "Then either:"
-    echo "  bash tests/crud_test_simple.sh                              # Uses default .oauth-tokens/admin-bot-token.json"
-    echo "  bash tests/crud_test_simple.sh /path/to/token.json         # With custom path"
-    echo "  TOKEN_FILE=/path/to/token.json bash tests/crud_test_simple.sh  # With env variable"
+    echo "  bash tests/agent_crud_test.sh                              # Uses default .oauth-tokens/admin-bot-token.json"
+    echo "  bash tests/agent_crud_test.sh /path/to/token.json         # With custom path"
+    echo "  TOKEN_FILE=/path/to/token.json bash tests/agent_crud_test.sh  # With env variable"
     echo ""
     echo "Note: Tokens expire after 5 minutes and must be regenerated before testing"
     echo ""
