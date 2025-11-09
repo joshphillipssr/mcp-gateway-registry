@@ -19,7 +19,7 @@
 
 ## What is MCP Gateway & Registry?
 
-The **MCP Gateway & Registry** is an enterprise-ready platform that centralizes access to AI development tools using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction). Instead of managing hundreds of individual tool configurations across your development teams, provide secure, governed access to curated AI tools through a single platform.
+The **MCP Gateway & Registry** is an enterprise-ready platform that centralizes access to MCP Servers and AI Agents using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction). Instead of managing hundreds of individual MCP server configurations and agent connections across your development teams, provide secure, governed access to curated MCP servers and registered agents through a single platform.
 
 **Transform this chaos:**
 ```
@@ -49,23 +49,23 @@ The **MCP Gateway & Registry** is an enterprise-ready platform that centralizes 
 
 ```
 ┌─────────────────────────────────────┐     ┌──────────────────────────────────────┐
-│          BEFORE: Chaos              │     │       AFTER: MCP Gateway             │
+│          BEFORE: Chaos              │     │  AFTER: MCP Gateway & Registry       │
 ├─────────────────────────────────────┤     ├──────────────────────────────────────┤
 │                                     │     │                                      │
 │  Developer 1 ──┬──► MCP Server A    │     │  Developer 1 ──┐                     │
 │                ├──► MCP Server B    │     │                │                     │
 │                └──► MCP Server C    │     │  Developer 2 ──┼──► MCP Gateway      │
-│                                     │     │                │         │           │
-│  Developer 2 ──┬──► MCP Server A    │ ──► │  AI Agent 1 ───┘         ├──► MCP A  │
-│                ├──► MCP Server D    │     │                          ├──► MCP B  │
-│                └──► MCP Server E    │     │  AI Agent 2 ─────────────├──► MCP C  │
-│                                     │     │                          ├──► MCP D  │
-│  AI Agent 1 ───┬──► MCP Server B    │     │  AI Agent 3 ─────────────├──► MCP E  │
-│                ├──► MCP Server C    │     │                          └──► MCP F  │
+│                                     │     │                │    & Registry       │
+│  Developer 2 ──┬──► MCP Server A    │ ──► │  AI Agent 1 ───┘         │           │
+│                ├──► MCP Server D    │     │                    ┌─────┴─────┐      │
+│                └──► MCP Server E    │     │  AI Agent 2 ──────►│  MCP      │      │
+│                                     │     │                    │  Servers  │      │
+│  AI Agent 1 ───┬──► MCP Server B    │     │  AI Agent 3 ──────►│  & Agents │      │
+│                ├──► MCP Server C    │     │                    └───────────┘      │
 │                └──► MCP Server F    │     │                                      │
 │                                     │     │          Single Connection           │
 │  ❌ Multiple connections per user  │      │         ✅ One gateway for all      │
-│  ❌ No centralized control         │     │          ✅ Dynamic discovery        │
+│  ❌ No centralized control         │     │          ✅ Unified server & agent  │
 │  ❌ Credential sprawl               │     │         ✅ Unified governance       │
 └─────────────────────────────────────┘     └──────────────────────────────────────┘
 ```
