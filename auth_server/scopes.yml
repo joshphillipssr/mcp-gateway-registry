@@ -43,64 +43,52 @@ UI-Scopes:
     modify_service:
     - all
 
-  mcp-registry-user:
-    list_service:
-    - mcpgw
-    - realserverfaketools
-    health_check_service:
-    - mcpgw
-  mcp-registry-developer:
-    list_service:
-    - all
-    register_service:
-    - all
-    health_check_service:
-    - all
-  mcp-registry-operator:
-    list_service:
-    - all
-    health_check_service:
-    - all
-    toggle_service:
-    - all
-
-  # A2A Agent Scopes
-  a2a-agent-admin:
-    publish_agent:
-    - all
-    modify_service:
-    - all
-    toggle_service:
-    - all
-    delete_agent:
-    - all
+  registry-users-lob1:
     list_agents:
-    - all
-
-  a2a-agent-publisher:
-    publish_agent:
-    - all
-    modify_service:
-    - all
-    toggle_service:
-    - all
-    list_agents:
-    - all
-
-  a2a-agent-user:
-    list_agents:
+    - /code-reviewer
     - /test-automation
-    - /documentation
     get_agent:
+    - /code-reviewer
     - /test-automation
-    - /documentation
+    publish_agent:
+    - /code-reviewer
+    - /test-automation
+    modify_agent:
+    - /code-reviewer
+    - /test-automation
+    delete_agent:
+    - /code-reviewer
+    - /test-automation
     list_service:
     - currenttime
     - mcpgw
     health_check_service:
     - currenttime
     - mcpgw
-
+  registry-users-lob2:
+    list_agents:
+    - /data-analysis
+    - /security-analyzer
+    get_agent:
+    - /data-analysis
+    - /security-analyzer
+    publish_agent:
+    - /data-analysis
+    - /security-analyzer
+    modify_agent:
+    - /data-analysis
+    - /security-analyzer
+    delete_agent:
+    - /data-analysis
+    - /security-analyzer
+    list_service:
+    - realserverfaketools
+    - mcpgw
+    - fininfo
+    health_check_service:
+    - realserverfaketools
+    - mcpgw
+    - fininfo
 group_mappings:
   mcp-registry-admin:
   - mcp-registry-admin
@@ -108,33 +96,10 @@ group_mappings:
   - mcp-servers-unrestricted/execute
   registry-admins:
   - registry-admins
-  mcp-registry-user:
-  - mcp-registry-user
-  - mcp-servers-restricted/read
-  mcp-registry-developer:
-  - mcp-registry-developer
-  - mcp-servers-restricted/read
-  - mcp-servers-restricted/execute
-  mcp-registry-operator:
-  - mcp-registry-operator
-  - mcp-servers-restricted/read
-  - mcp-servers-restricted/execute
-  mcp-servers-unrestricted:
-  - mcp-servers-unrestricted/read
-  - mcp-servers-unrestricted/execute
-  mcp-servers-restricted:
-  - mcp-servers-restricted/read
-  - mcp-servers-restricted/execute
-  a2a-agent-admin:
-  - a2a-agent-admin
-  - mcp-servers-unrestricted/read
-  - mcp-servers-unrestricted/execute
-  a2a-agent-publisher:
-  - a2a-agent-publisher
-  - mcp-servers-restricted/read
-  - mcp-servers-restricted/execute
-  a2a-agent-user:
-  - a2a-agent-user
+  registry-users-lob1:
+  - registry-users-lob1
+  registry-users-lob2:
+  - registry-users-lob2
 mcp-servers-unrestricted/read:
 - server: api
   methods:
@@ -214,37 +179,6 @@ mcp-servers-unrestricted/read:
   tools:
   - get_stock_aggregates
   - print_stock_data
-- server: sre-gateway
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - x_amz_bedrock_agentcore_search
-  - k8s-api___get_cluster_events
-  - k8s-api___get_deployment_status
-  - k8s-api___get_node_status
-  - k8s-api___get_pod_status
-  - k8s-api___get_resource_usage
-  - logs-api___analyze_log_patterns
-  - logs-api___count_log_events
-  - logs-api___get_error_logs
-  - logs-api___get_recent_logs
-  - logs-api___search_logs
-  - metrics-api___analyze_trends
-  - metrics-api___get_availability_metrics
-  - metrics-api___get_error_rates
-  - metrics-api___get_performance_metrics
-  - metrics-api___get_resource_metrics
-  - runbooks-api___get_common_resolutions
-  - runbooks-api___get_escalation_procedures
-  - runbooks-api___get_incident_playbook
-  - runbooks-api___get_troubleshooting_guide
-  - runbooks-api___search_runbooks
 - server: atlassian
   methods:
   - initialize
@@ -258,46 +192,8 @@ mcp-servers-unrestricted/read:
   - jira_get_user_profile
   - jira_get_issue
   - jira_search
-  - jira_search_fields
-  - jira_get_project_issues
-  - jira_get_transitions
-  - jira_get_worklog
-  - jira_download_attachments
-  - jira_get_agile_boards
-  - jira_get_board_issues
-  - jira_get_sprints_from_board
-  - jira_get_sprint_issues
-  - jira_get_link_types
   - jira_create_issue
-  - jira_batch_create_issues
-  - jira_batch_get_changelogs
-  - jira_update_issue
-  - jira_delete_issue
-  - jira_add_comment
-  - jira_add_worklog
-  - jira_link_to_epic
-  - jira_create_issue_link
-  - jira_create_remote_issue_link
-  - jira_remove_issue_link
-  - jira_transition_issue
-  - jira_create_sprint
-  - jira_update_sprint
-  - jira_get_project_versions
-  - jira_get_all_projects
-  - jira_create_version
-  - jira_batch_create_versions
-  - confluence_search
-  - confluence_get_page
-  - confluence_get_page_children
-  - confluence_get_comments
-  - confluence_get_labels
-  - confluence_add_label
-  - confluence_create_page
-  - confluence_update_page
-  - confluence_delete_page
-  - confluence_add_comment
-  - confluence_search_user
-- server: example-server
+- server: mcpgw/
   methods:
   - initialize
   - notifications/initialized
@@ -307,9 +203,20 @@ mcp-servers-unrestricted/read:
   - resources/list
   - resources/templates/list
   tools:
-  - example_tool
-  - echo_tool
-  - status_tool
+  - debug_auth_context
+  - get_http_headers
+  - toggle_service
+  - register_service
+  - list_services
+  - remove_service
+  - refresh_service
+  - healthcheck
+  - intelligent_tool_finder
+  - add_server_to_scopes_groups
+  - remove_server_from_scopes_groups
+  - create_group
+  - delete_group
+  - list_groups
 mcp-servers-unrestricted/execute:
 - server: api
   methods:
@@ -392,37 +299,6 @@ mcp-servers-unrestricted/execute:
   tools:
   - get_stock_aggregates
   - print_stock_data
-- server: sre-gateway
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - x_amz_bedrock_agentcore_search
-  - k8s-api___get_cluster_events
-  - k8s-api___get_deployment_status
-  - k8s-api___get_node_status
-  - k8s-api___get_pod_status
-  - k8s-api___get_resource_usage
-  - logs-api___analyze_log_patterns
-  - logs-api___count_log_events
-  - logs-api___get_error_logs
-  - logs-api___get_recent_logs
-  - logs-api___search_logs
-  - metrics-api___analyze_trends
-  - metrics-api___get_availability_metrics
-  - metrics-api___get_error_rates
-  - metrics-api___get_performance_metrics
-  - metrics-api___get_resource_metrics
-  - runbooks-api___get_common_resolutions
-  - runbooks-api___get_escalation_procedures
-  - runbooks-api___get_incident_playbook
-  - runbooks-api___get_troubleshooting_guide
-  - runbooks-api___search_runbooks
 - server: atlassian
   methods:
   - initialize
@@ -436,82 +312,8 @@ mcp-servers-unrestricted/execute:
   - jira_get_user_profile
   - jira_get_issue
   - jira_search
-  - jira_search_fields
-  - jira_get_project_issues
-  - jira_get_transitions
-  - jira_get_worklog
-  - jira_download_attachments
-  - jira_get_agile_boards
-  - jira_get_board_issues
-  - jira_get_sprints_from_board
-  - jira_get_sprint_issues
-  - jira_get_link_types
   - jira_create_issue
-  - jira_batch_create_issues
-  - jira_batch_get_changelogs
-  - jira_update_issue
-  - jira_delete_issue
-  - jira_add_comment
-  - jira_add_worklog
-  - jira_link_to_epic
-  - jira_create_issue_link
-  - jira_create_remote_issue_link
-  - jira_remove_issue_link
-  - jira_transition_issue
-  - jira_create_sprint
-  - jira_update_sprint
-  - jira_get_project_versions
-  - jira_get_all_projects
-  - jira_create_version
-  - jira_batch_create_versions
-  - confluence_search
-  - confluence_get_page
-  - confluence_get_page_children
-  - confluence_get_comments
-  - confluence_get_labels
-  - confluence_add_label
-  - confluence_create_page
-  - confluence_update_page
-  - confluence_delete_page
-  - confluence_add_comment
-  - confluence_search_user
-- server: example-server
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - example_tool
-  - echo_tool
-  - status_tool
-mcp-servers-restricted/read:
-- server: auth_server
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - validate_request
-- server: currenttime
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - current_time_by_timezone
-- server: mcpgw
+- server: mcpgw/
   methods:
   - initialize
   - notifications/initialized
@@ -535,136 +337,8 @@ mcp-servers-restricted/read:
   - create_group
   - delete_group
   - list_groups
-- server: realserverfaketools
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - quantum_flux_analyzer
-  - neural_pattern_synthesizer
-  - hyper_dimensional_mapper
-  - temporal_anomaly_detector
-  - user_profile_analyzer
-  - synthetic_data_generator
-- server: example-server
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - example_tool
-  - echo_tool
-  - status_tool
-mcp-servers-restricted/execute:
-- server: auth_server
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - validate_request
-- server: currenttime
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - current_time_by_timezone
-- server: mcpgw
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - debug_auth_context
-  - get_http_headers
-  - toggle_service
-  - register_service
-  - list_services
-  - remove_service
-  - refresh_service
-  - healthcheck
-  - intelligent_tool_finder
-  - add_server_to_scopes_groups
-  - remove_server_from_scopes_groups
-  - create_group
-  - delete_group
-  - list_groups
-- server: realserverfaketools
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - tools/list
-  - tools/call
-  - resources/list
-  - resources/templates/list
-  tools:
-  - quantum_flux_analyzer
-  - neural_pattern_synthesizer
-  - hyper_dimensional_mapper
-  - temporal_anomaly_detector
-  - user_profile_analyzer
-  - synthetic_data_generator
-# A2A Agent Scopes - allow access to agent management and discovery endpoints
-a2a-agent-admin:
-- server: a2a-gateway
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - list_agents
-  - get_agent
-  - publish_agent
-  - modify_agent
-  - delete_agent
-  - toggle_agent
-  tools:
-  - list_agents
-  - get_agent
-  - publish_agent
-  - modify_agent
-  - delete_agent
-  - toggle_agent
 
-a2a-agent-publisher:
-- server: a2a-gateway
-  methods:
-  - initialize
-  - notifications/initialized
-  - ping
-  - list_agents
-  - get_agent
-  - publish_agent
-  - modify_agent
-  tools:
-  - list_agents
-  - get_agent
-  - publish_agent
-  - modify_agent
-
-a2a-agent-user:
+registry-users-lob1:
 - server: api
   methods:
   - initialize
@@ -691,6 +365,92 @@ a2a-agent-user:
   - resources/templates/list
   tools:
   - intelligent_tool_finder
+- agents:
+    actions:
+    - action: list_agents
+      resources:
+      - /code-reviewer
+      - /test-automation
+    - action: get_agent
+      resources:
+      - /code-reviewer
+      - /test-automation
+    - action: publish_agent
+      resources:
+      - /code-reviewer
+      - /test-automation
+    - action: modify_agent
+      resources:
+      - /code-reviewer
+      - /test-automation
+    - action: delete_agent
+      resources:
+      - /code-reviewer
+      - /test-automation
+
+registry-users-lob2:
+- server: api
+  methods:
+  - initialize
+  - GET
+- server: realserverfaketools
+  methods:
+  - initialize
+  - notifications/initialized
+  - ping
+  - tools/list
+  - tools/call
+  - resources/list
+  - resources/templates/list
+  tools:
+  - quantum_flux_analyzer
+  - neural_pattern_synthesizer
+  - hyper_dimensional_mapper
+- server: mcpgw
+  methods:
+  - initialize
+  - notifications/initialized
+  - ping
+  - tools/list
+  - tools/call
+  - resources/list
+  - resources/templates/list
+  tools:
+  - intelligent_tool_finder
+- server: fininfo
+  methods:
+  - initialize
+  - notifications/initialized
+  - ping
+  - tools/list
+  - tools/call
+  - resources/list
+  - resources/templates/list
+  tools:
+  - get_stock_aggregates
+  - print_stock_data
+- agents:
+    actions:
+    - action: list_agents
+      resources:
+      - /data-analysis
+      - /security-analyzer
+    - action: get_agent
+      resources:
+      - /data-analysis
+      - /security-analyzer
+    - action: publish_agent
+      resources:
+      - /data-analysis
+      - /security-analyzer
+    - action: modify_agent
+      resources:
+      - /data-analysis
+      - /security-analyzer
+    - action: delete_agent
+      resources:
+      - /data-analysis
+      - /security-analyzer
 
 registry-admins:
 - server: '*'
@@ -698,14 +458,20 @@ registry-admins:
   - all
   tools:
   - all
-
-agents:
-  actions:
-  - action: list_agents
-    resources:
-    - /test-automation
-    - /documentation
-  - action: get_agent
-    resources:
-    - /test-automation
-    - /documentation
+- agents:
+    actions:
+    - action: list_agents
+      resources:
+      - all
+    - action: get_agent
+      resources:
+      - all
+    - action: publish_agent
+      resources:
+      - all
+    - action: modify_agent
+      resources:
+      - all
+    - action: delete_agent
+      resources:
+      - all
