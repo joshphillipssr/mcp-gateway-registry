@@ -78,6 +78,8 @@ Instead of managing hundreds of individual MCP server configurations and agent c
 └─────────────────────────────────────┘     └──────────────────────────────────────────────────────┘
 ```
 
+> **Note on Agent-to-Agent Communication:** AI Agents discover other AI Agents through the unified Agent Registry and communicate with them **directly** (peer-to-peer) without routing through the MCP Gateway. The Registry handles discovery, authentication, and access control, while agents maintain direct connections for efficient, low-latency communication.
+
 ## MCP Servers & Agents Registry
 
 Watch how MCP Servers, A2A Agents, and External Registries work together for dynamic tool discovery:
