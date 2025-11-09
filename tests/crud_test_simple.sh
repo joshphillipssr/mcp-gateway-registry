@@ -107,10 +107,8 @@ if [ -z "$DECODED" ]; then
     echo ""
     echo "This usually means the token is malformed or corrupted."
     echo ""
-    echo -e "${YELLOW}To generate fresh tokens, run:${NC}"
+    echo -e "${YELLOW}To generate a fresh token, run:${NC}"
     echo "  ./keycloak/setup/generate-agent-token.sh admin-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob1-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob2-bot"
     echo ""
     exit 1
 fi
@@ -122,10 +120,8 @@ if [ -z "$EXP" ] || [ "$EXP" = "null" ]; then
     echo ""
     echo -e "${RED}✗ ERROR: Token does not contain expiration info!${NC}"
     echo ""
-    echo -e "${YELLOW}To generate fresh tokens, run:${NC}"
+    echo -e "${YELLOW}To generate a fresh token, run:${NC}"
     echo "  ./keycloak/setup/generate-agent-token.sh admin-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob1-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob2-bot"
     echo ""
     exit 1
 fi
@@ -140,10 +136,8 @@ if [ $TIME_REMAINING -lt 0 ]; then
     echo ""
     echo "Token expired $((-TIME_REMAINING)) seconds ago"
     echo ""
-    echo -e "${YELLOW}To generate fresh tokens, run:${NC}"
+    echo -e "${YELLOW}To generate a fresh token, run:${NC}"
     echo "  ./keycloak/setup/generate-agent-token.sh admin-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob1-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob2-bot"
     echo ""
     echo "Note: Tokens expire after 5 minutes and must be regenerated before testing"
     echo ""
@@ -155,10 +149,8 @@ if [ $TIME_REMAINING -lt 30 ]; then
     echo ""
     echo -e "${YELLOW}⚠ WARNING: Token expires in $TIME_REMAINING seconds!${NC}"
     echo ""
-    echo "Consider regenerating tokens:"
+    echo "Consider regenerating the token:"
     echo "  ./keycloak/setup/generate-agent-token.sh admin-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob1-bot"
-    echo "  ./keycloak/setup/generate-agent-token.sh lob2-bot"
     echo ""
 fi
 
