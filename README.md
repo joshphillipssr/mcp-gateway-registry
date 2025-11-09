@@ -66,15 +66,15 @@ Instead of managing hundreds of individual MCP server configurations and agent c
 │                                     │     │                │    & Registry ───┼─ MCP Server C    │
 │  Developer 2 ──┬──► MCP Server A    │ ──► │  AI Agent 1 ───┘         │        │                  │
 │                ├──► MCP Server D    │     │                          │        ├─ AI Agent 1      │
-│                └──► MCP Server E    │     │  AI Agent 2 ──────────────┤        ├─ AI Agent 2      │
+│                └──► MCP Server E    │     │  AI Agent 2 ──────────────┤        ├─ AI Agent 2     │
 │                                     │     │                          │        │                  │
-│  AI Agent 1 ───┬──► MCP Server B    │     │  AI Agent 3 ──────────────┘        └─ AI Agent 3      │
+│  AI Agent 1 ───┬──► MCP Server B    │     │  AI Agent 3 ──────────────┘        └─ AI Agent 3     │
 │                ├──► MCP Server C    │     │                                                      │
 │                └──► MCP Server F    │     │              Single Connection Point                 │
 │                                     │     │                                                      │
-│  ❌ Multiple connections per user  │      │         ✅ One gateway for all                      │
-│  ❌ No centralized control         │     │          ✅ Unified server & agent access           │
-│  ❌ Credential sprawl               │     │         ✅ Unified governance & audit trails        │
+│  ❌ Multiple connections per user  │     │         ✅ One gateway for all                      │
+│  ❌ No centralized control         │     │         ✅ Unified server & agent access            │
+│  ❌ Credential sprawl              │     │         ✅ Unified governance & audit trails        │
 └─────────────────────────────────────┘     └──────────────────────────────────────────────────────┘
 ```
 
