@@ -148,10 +148,10 @@ The registry includes two example A2A agents built with [Amazon Bedrock AgentCor
 
 ### Example Agents
 
-| Agent | Path | Description |
-|-------|------|-------------|
-| **Travel Assistant Agent** | `/travel-assistant-agent` | Searches for available flights between cities, provides flight recommendations based on price and preferences, and returns detailed flight information (times, prices, airlines) |
-| **Flight Booking Agent** | `/flight-booking-agent` | Checks flight availability and seat counts, creates flight reservations, and manages the booking database |
+| Agent | Path | Skills |
+|-------|------|--------|
+| **Travel Assistant Agent** | `/travel-assistant-agent` | Flight search, pricing checks, recommendations, trip planning |
+| **Flight Booking Agent** | `/flight-booking-agent` | Availability checks, flight reservations, payments, reservation management |
 
 ### Getting Started with A2A Agents
 
