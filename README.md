@@ -223,8 +223,16 @@ This deploys agents to managed AWS AgentCore infrastructure with automatic scali
 The complete agent implementations are available in `agents/a2a/`:
 - Source code: `agents/a2a/src/`
 - Deployment scripts: `agents/a2a/deploy_local.sh`, `agents/a2a/deploy_live.sh`
-- Agent cards: `agents/a2a/test/flight_booking_agent_card.json`, `agents/a2a/test/travel_assistant_agent_card.json`
+- Agent cards:
+  - [agents/a2a/test/flight_booking_agent_card.json](agents/a2a/test/flight_booking_agent_card.json) - Flight Booking agent metadata with skills
+  - [agents/a2a/test/travel_assistant_agent_card.json](agents/a2a/test/travel_assistant_agent_card.json) - Travel Assistant agent metadata with skills
 - Tests: `agents/a2a/test/simple_agents_test.py`
+
+**View Agent Cards:** You can inspect the agent card JSON files directly to see the complete agent metadata including:
+- Agent name, description, and version
+- Available skills and their descriptions
+- Protocol version and supported transport modes
+- Default input/output modes and capabilities
 
 For comprehensive deployment and testing documentation, see [agents/a2a/README.md](agents/a2a/README.md).
 
