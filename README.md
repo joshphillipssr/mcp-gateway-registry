@@ -142,6 +142,94 @@ Interactive terminal interface for chatting with AI models and discovering MCP t
 
 ---
 
+## A2A Agents - Example Implementations
+
+The registry includes two example A2A agents built with [AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-setup.html) and the [Strands framework](https://docs.strands-ai.com/). These agents demonstrate how to implement, register, and discover agents through the unified Agent Registry.
+
+### Example Agents
+
+| Agent | Path | Description |
+|-------|------|-------------|
+| **Travel Assistant Agent** | `/travel-assistant-agent` | Searches for available flights between cities, provides flight recommendations based on price and preferences, and returns detailed flight information (times, prices, airlines) |
+| **Flight Booking Agent** | `/flight-booking-agent` | Checks flight availability and seat counts, creates flight reservations, and manages the booking database |
+
+### Getting Started with A2A Agents
+
+**1. Deploy Local Agents (Docker)**
+```bash
+# From repo root
+agents/a2a/deploy_local.sh
+
+# Or from agents/a2a directory
+cd agents/a2a
+./deploy_local.sh --help
+```
+
+Agents will be available at:
+- Travel Assistant: `http://localhost:9001`
+- Flight Booking: `http://localhost:9002`
+
+**2. Register Agents with Registry**
+
+```bash
+# Register Travel Assistant Agent
+cli/agent_mgmt.sh register agents/a2a/test/travel_assistant_agent_card.json
+
+# Register Flight Booking Agent
+cli/agent_mgmt.sh register agents/a2a/test/flight_booking_agent_card.json
+```
+
+**3. View Agents in Registry UI**
+
+Open the registry UI and navigate to the **A2A Agents** tab to see your registered agents with full metadata including:
+- Agent name and description
+- Available tools and capabilities
+- API endpoints and communication methods
+- Input/output schemas
+- Trust level and authentication schemes
+
+**4. Search for Agents**
+
+Use the semantic search API to discover agents by natural language:
+
+```bash
+# Search for agents that can help book a trip
+cli/agent_mgmt.sh search "need an agent to book a trip"
+```
+
+**Example Output:**
+```
+Found 4 agent(s) matching 'need an agent to book a trip':
+--------------------------------------------------------------------------------------------------------------
+Agent Name                               | Path                      | Score
+--------------------------------------------------------------------------------------------------------------
+Travel Assistant Agent                   | /travel-assistant-agent   |  0.8610
+Flight Booking Agent                     | /flight-booking-agent     |  1.2134
+--------------------------------------------------------------------------------------------------------------
+```
+
+**5. Deploy to AgentCore Runtime (AWS)**
+
+For production deployments on AWS:
+```bash
+# From agents/a2a directory
+./deploy_live.sh
+```
+
+This deploys agents to managed AWS AgentCore infrastructure with automatic scaling.
+
+### Agent Source Code
+
+The complete agent implementations are available in `agents/a2a/`:
+- Source code: `agents/a2a/src/`
+- Deployment scripts: `agents/a2a/deploy_local.sh`, `agents/a2a/deploy_live.sh`
+- Agent cards: `agents/a2a/test/flight_booking_agent_card.json`, `agents/a2a/test/travel_assistant_agent_card.json`
+- Tests: `agents/a2a/test/simple_agents_test.py`
+
+For comprehensive deployment and testing documentation, see [agents/a2a/README.md](agents/a2a/README.md).
+
+---
+
 ## Core Use Cases
 
 ### AI Agent & Coding Assistant Governance
