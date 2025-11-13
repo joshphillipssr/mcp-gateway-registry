@@ -33,3 +33,17 @@ variable "alarm_email" {
   type        = string
   default     = ""
 }
+
+variable "keycloak_client_secret" {
+  description = "Keycloak client secret for web application OAuth2. Get this from Keycloak Admin Console > Clients > mcp-gateway-web > Credentials > Secret"
+  type        = string
+  default     = "change-me-to-keycloak-web-client-secret"
+  sensitive   = true
+}
+
+variable "keycloak_m2m_client_secret" {
+  description = "Keycloak machine-to-machine client secret for Admin API. Get this from Keycloak Admin Console > Clients > mcp-gateway-m2m > Credentials > Secret"
+  type        = string
+  default     = "change-me-to-keycloak-m2m-client-secret"
+  sensitive   = true
+}

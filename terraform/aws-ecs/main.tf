@@ -50,4 +50,8 @@ module "mcp_gateway" {
   # Monitoring configuration
   enable_monitoring = var.enable_monitoring
   alarm_email       = var.alarm_email
+
+  # Keycloak OAuth2 secrets
+  keycloak_client_secret     = var.keycloak_client_secret
+  keycloak_m2m_client_secret = var.keycloak_m2m_client_secret
 }
