@@ -105,3 +105,26 @@ output "keycloak_ecr_repository" {
   description = "Keycloak ECR repository URL"
   value       = aws_ecr_repository.keycloak.repository_url
 }
+
+#
+# Registry DNS and Certificate Outputs
+#
+
+output "registry_url" {
+  description = "Registry URL with custom domain"
+  value       = "https://registry.${var.root_domain}"
+}
+
+output "registry_certificate_arn" {
+  description = "ACM certificate ARN for registry subdomain"
+  value       = aws_acm_certificate.registry.arn
+}
+
+output "registry_dns_record" {
+  description = "Registry DNS A record details"
+  value = {
+    name    = aws_route53_record.registry.name
+    type    = aws_route53_record.registry.type
+    zone_id = aws_route53_record.registry.zone_id
+  }
+}
