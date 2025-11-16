@@ -3,7 +3,9 @@
 MCP Gateway Registry Client - Standalone Pydantic-based client for the Registry API.
 
 This client provides a type-safe interface to the MCP Gateway Registry API endpoints
-documented in /home/ubuntu/repos/mcp-gateway-registry/docs/api-specs/server-management.yaml.
+documented in:
+- /home/ubuntu/repos/mcp-gateway-registry/docs/api-specs/server-management.yaml (Server Management)
+- /home/ubuntu/repos/mcp-gateway-registry/docs/api-specs/a2a-agent-management.yaml (Agent Management)
 
 Authentication is handled via JWT tokens retrieved from AWS SSM Parameter Store using
 the get-m2m-token.sh script.
@@ -121,12 +123,177 @@ class GroupListResponse(BaseModel):
     groups: List[Dict[str, Any]] = Field(..., description="List of groups")
 
 
+# Agent Management Models
+
+
+class AgentProvider(str, Enum):
+    """Agent provider enumeration."""
+    ANTHROPIC = "anthropic"
+    CUSTOM = "custom"
+    OTHER = "other"
+
+
+class AgentVisibility(str, Enum):
+    """Agent visibility enumeration."""
+    PUBLIC = "public"
+    PRIVATE = "private"
+    INTERNAL = "internal"
+
+
+class SecuritySchemeType(str, Enum):
+    """Security scheme type enumeration."""
+    BEARER = "bearer"
+    API_KEY = "api_key"
+    OAUTH2 = "oauth2"
+
+
+class SecurityScheme(BaseModel):
+    """Security scheme model."""
+
+    type: SecuritySchemeType = Field(..., description="Security scheme type")
+    description: Optional[str] = Field(None, description="Security scheme description")
+
+
+class Skill(BaseModel):
+    """Skill model for agent capabilities."""
+
+    name: str = Field(..., description="Skill name")
+    description: str = Field(..., description="Skill description")
+    input_schema: Optional[Dict[str, Any]] = Field(None, description="JSON schema for skill input parameters")
+
+
+class AgentRegistration(BaseModel):
+    """Agent registration request model."""
+
+    name: str = Field(..., description="Display name of the agent")
+    description: str = Field(..., description="Detailed description of the agent")
+    path: str = Field(..., description="Unique path for the agent (e.g., /code-reviewer)")
+    url: str = Field(..., description="URL where the agent is hosted")
+    version: str = Field(..., description="Version string (e.g., 1.0.0)")
+    provider: AgentProvider = Field(..., description="Agent provider")
+    security_schemes: Optional[Dict[str, SecurityScheme]] = Field(
+        None,
+        description="Security schemes supported by the agent"
+    )
+    skills: List[Skill] = Field(..., description="Array of skills provided by the agent")
+    tags: Optional[str] = Field(None, description="Comma-separated tags")
+    visibility: Optional[AgentVisibility] = Field(
+        AgentVisibility.PUBLIC,
+        description="Visibility level"
+    )
+    license: Optional[str] = Field(None, description="License type (e.g., MIT, Apache-2.0)")
+
+
+class AgentCard(BaseModel):
+    """Agent card model (summary view)."""
+
+    name: str = Field(..., description="Agent name")
+    path: str = Field(..., description="Agent path")
+    url: str = Field(..., description="Agent URL")
+    num_skills: int = Field(..., description="Number of skills")
+    registered_at: datetime = Field(..., description="Registration timestamp")
+    is_enabled: bool = Field(..., description="Whether agent is enabled")
+
+
+class AgentRegistrationResponse(BaseModel):
+    """Agent registration response model."""
+
+    message: str = Field(..., description="Response message")
+    agent: AgentCard = Field(..., description="Registered agent card")
+
+
+class SkillDetail(BaseModel):
+    """Detailed skill model."""
+
+    name: str = Field(..., description="Skill name")
+    description: str = Field(..., description="Skill description")
+    input_schema: Optional[Dict[str, Any]] = Field(None, description="JSON schema for skill input")
+
+
+class AgentDetail(BaseModel):
+    """Detailed agent model."""
+
+    name: str = Field(..., description="Agent name")
+    path: str = Field(..., description="Agent path")
+    description: str = Field(..., description="Agent description")
+    url: str = Field(..., description="Agent URL")
+    version: str = Field(..., description="Agent version")
+    provider: str = Field(..., description="Agent provider")
+    skills: List[SkillDetail] = Field(..., description="Agent skills")
+    is_enabled: bool = Field(..., description="Whether agent is enabled")
+    visibility: str = Field(..., description="Visibility level")
+    security_schemes: Optional[Dict[str, Any]] = Field(None, description="Security schemes")
+
+
+class AgentListItem(BaseModel):
+    """Agent list item model."""
+
+    name: str = Field(..., description="Agent name")
+    path: str = Field(..., description="Agent path")
+    description: str = Field(..., description="Agent description")
+    is_enabled: bool = Field(..., description="Whether agent is enabled")
+    total_count: int = Field(..., description="Total count")
+
+
+class AgentListResponse(BaseModel):
+    """Agent list response model."""
+
+    agents: List[AgentListItem] = Field(..., description="List of agents")
+
+
+class AgentToggleResponse(BaseModel):
+    """Agent toggle response model."""
+
+    path: str = Field(..., description="Agent path")
+    is_enabled: bool = Field(..., description="Current enabled status")
+    message: str = Field(..., description="Response message")
+
+
+class SkillDiscoveryRequest(BaseModel):
+    """Skill-based discovery request model."""
+
+    skills: List[str] = Field(..., description="List of required skills")
+    tags: Optional[List[str]] = Field(None, description="Optional tag filters")
+
+
+class DiscoveredAgent(BaseModel):
+    """Discovered agent model (skill-based)."""
+
+    path: str = Field(..., description="Agent path")
+    name: str = Field(..., description="Agent name")
+    relevance_score: float = Field(..., description="Matching score (0.0 to 1.0)")
+    matching_skills: List[str] = Field(..., description="Matching skills")
+
+
+class AgentDiscoveryResponse(BaseModel):
+    """Agent discovery response model (skill-based)."""
+
+    agents: List[DiscoveredAgent] = Field(..., description="Discovered agents")
+
+
+class SemanticDiscoveredAgent(BaseModel):
+    """Semantically discovered agent model."""
+
+    path: str = Field(..., description="Agent path")
+    name: str = Field(..., description="Agent name")
+    relevance_score: float = Field(..., description="Semantic similarity score (0.0 to 1.0)")
+    description: str = Field(..., description="Agent description")
+
+
+class AgentSemanticDiscoveryResponse(BaseModel):
+    """Agent semantic discovery response model."""
+
+    agents: List[SemanticDiscoveredAgent] = Field(..., description="Semantically discovered agents")
+
+
 class RegistryClient:
     """
     MCP Gateway Registry API client.
 
-    Provides methods for interacting with the Registry API endpoints including
-    server registration, removal, toggling, health checks, and group management.
+    Provides methods for interacting with the Registry API endpoints including:
+    - Server Management: registration, removal, toggling, health checks
+    - Group Management: create, delete, list groups
+    - Agent Management: register, update, delete, discover agents (A2A)
 
     Authentication is handled via JWT tokens passed to the constructor.
     """
@@ -490,4 +657,256 @@ class RegistryClient:
 
         result = GroupListResponse(**response.json())
         logger.info(f"Retrieved {len(result.groups)} groups")
+        return result
+
+    # Agent Management Methods
+
+    def register_agent(
+        self,
+        agent: AgentRegistration
+    ) -> AgentRegistrationResponse:
+        """
+        Register a new A2A agent.
+
+        Args:
+            agent: Agent registration data
+
+        Returns:
+            Agent registration response
+
+        Raises:
+            requests.HTTPError: If registration fails (409 for conflict, 422 for validation error, 403 for permission denied)
+        """
+        logger.info(f"Registering agent: {agent.path}")
+
+        response = self._make_request(
+            method="POST",
+            endpoint="/api/agents/register",
+            data=agent.model_dump(exclude_none=True)
+        )
+
+        result = AgentRegistrationResponse(**response.json())
+        logger.info(f"Agent registered successfully: {agent.path}")
+        return result
+
+    def list_agents(
+        self,
+        query: Optional[str] = None,
+        enabled_only: bool = False,
+        visibility: Optional[str] = None
+    ) -> AgentListResponse:
+        """
+        List all agents with optional filtering.
+
+        Args:
+            query: Search query string
+            enabled_only: Show only enabled agents
+            visibility: Filter by visibility level (public, private, internal)
+
+        Returns:
+            Agent list response
+
+        Raises:
+            requests.HTTPError: If list operation fails
+        """
+        logger.info("Listing agents")
+
+        params = {}
+        if query:
+            params["query"] = query
+        if enabled_only:
+            params["enabled_only"] = "true"
+        if visibility:
+            params["visibility"] = visibility
+
+        response = self._make_request(
+            method="GET",
+            endpoint="/api/agents",
+            params=params
+        )
+
+        result = AgentListResponse(**response.json())
+        logger.info(f"Retrieved {len(result.agents)} agents")
+        return result
+
+    def get_agent(
+        self,
+        path: str
+    ) -> AgentDetail:
+        """
+        Get detailed information about a specific agent.
+
+        Args:
+            path: Agent path (e.g., /code-reviewer)
+
+        Returns:
+            Agent detail
+
+        Raises:
+            requests.HTTPError: If agent not found (404) or unauthorized (403)
+        """
+        logger.info(f"Getting agent details: {path}")
+
+        response = self._make_request(
+            method="GET",
+            endpoint=f"/api/agents{path}"
+        )
+
+        result = AgentDetail(**response.json())
+        logger.info(f"Retrieved agent details: {path}")
+        return result
+
+    def update_agent(
+        self,
+        path: str,
+        agent: AgentRegistration
+    ) -> AgentDetail:
+        """
+        Update an existing agent.
+
+        Args:
+            path: Agent path
+            agent: Updated agent data
+
+        Returns:
+            Updated agent detail
+
+        Raises:
+            requests.HTTPError: If update fails (404 for not found, 403 for permission denied, 422 for validation error)
+        """
+        logger.info(f"Updating agent: {path}")
+
+        response = self._make_request(
+            method="PUT",
+            endpoint=f"/api/agents{path}",
+            data=agent.model_dump(exclude_none=True)
+        )
+
+        result = AgentDetail(**response.json())
+        logger.info(f"Agent updated successfully: {path}")
+        return result
+
+    def delete_agent(
+        self,
+        path: str
+    ) -> None:
+        """
+        Delete an agent from the registry.
+
+        Args:
+            path: Agent path
+
+        Raises:
+            requests.HTTPError: If deletion fails (404 for not found, 403 for permission denied)
+        """
+        logger.info(f"Deleting agent: {path}")
+
+        self._make_request(
+            method="DELETE",
+            endpoint=f"/api/agents{path}"
+        )
+
+        logger.info(f"Agent deleted successfully: {path}")
+
+    def toggle_agent(
+        self,
+        path: str,
+        enabled: bool
+    ) -> AgentToggleResponse:
+        """
+        Toggle agent enabled/disabled status.
+
+        Args:
+            path: Agent path
+            enabled: True to enable, False to disable
+
+        Returns:
+            Agent toggle response
+
+        Raises:
+            requests.HTTPError: If toggle fails (404 for not found, 403 for permission denied)
+        """
+        logger.info(f"Toggling agent {path} to {'enabled' if enabled else 'disabled'}")
+
+        params = {"enabled": str(enabled).lower()}
+
+        response = self._make_request(
+            method="POST",
+            endpoint=f"/api/agents{path}/toggle",
+            params=params
+        )
+
+        result = AgentToggleResponse(**response.json())
+        logger.info(f"Agent toggled: {path} is now {'enabled' if result.is_enabled else 'disabled'}")
+        return result
+
+    def discover_agents_by_skills(
+        self,
+        skills: List[str],
+        tags: Optional[List[str]] = None,
+        max_results: int = 10
+    ) -> AgentDiscoveryResponse:
+        """
+        Discover agents by required skills.
+
+        Args:
+            skills: List of required skills
+            tags: Optional tag filters
+            max_results: Maximum number of results (default: 10, max: 100)
+
+        Returns:
+            Agent discovery response
+
+        Raises:
+            requests.HTTPError: If discovery fails (400 for bad request)
+        """
+        logger.info(f"Discovering agents by skills: {skills}")
+
+        request_data = SkillDiscoveryRequest(skills=skills, tags=tags)
+        params = {"max_results": max_results}
+
+        response = self._make_request(
+            method="POST",
+            endpoint="/api/agents/discover",
+            data=request_data.model_dump(exclude_none=True),
+            params=params
+        )
+
+        result = AgentDiscoveryResponse(**response.json())
+        logger.info(f"Discovered {len(result.agents)} agents matching skills")
+        return result
+
+    def discover_agents_semantic(
+        self,
+        query: str,
+        max_results: int = 10
+    ) -> AgentSemanticDiscoveryResponse:
+        """
+        Discover agents using semantic search (FAISS vector search).
+
+        Args:
+            query: Natural language query (e.g., "Find agents that can analyze code")
+            max_results: Maximum number of results (default: 10, max: 100)
+
+        Returns:
+            Agent semantic discovery response
+
+        Raises:
+            requests.HTTPError: If discovery fails (400 for bad request, 500 for search error)
+        """
+        logger.info(f"Discovering agents semantically: {query}")
+
+        params = {
+            "query": query,
+            "max_results": max_results
+        }
+
+        response = self._make_request(
+            method="POST",
+            endpoint="/api/agents/discover/semantic",
+            params=params
+        )
+
+        result = AgentSemanticDiscoveryResponse(**response.json())
+        logger.info(f"Discovered {len(result.agents)} agents via semantic search")
         return result
