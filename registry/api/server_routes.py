@@ -2346,8 +2346,24 @@ async def register_service_api(
         )
 
     try:
-        # Register service
-        server_service.register_server(path, server_entry, overwrite=overwrite)
+        # Register service (use update_server if overwriting, otherwise register_server)
+        if existing_server and overwrite:
+            logger.info(f"Overwriting existing server at path {path} by user {user_context.get('username')}")
+            success = server_service.update_server(path, server_entry)
+        else:
+            success = server_service.register_server(server_entry)
+
+        if not success:
+            logger.error(f"Service registration failed for {path}")
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "Service registration failed",
+                    "reason": f"Failed to register service at path '{path}'",
+                    "detail": "Check server logs for more information"
+                }
+            )
+
         logger.info(f"Service registered successfully via API: {path} by user {user_context.get('username')}")
 
         # Trigger async tasks for health check and FAISS sync
