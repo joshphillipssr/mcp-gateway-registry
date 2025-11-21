@@ -16,8 +16,8 @@ COPY .tmp/pyproject.toml .tmp/uv.lock ./
 # Install Python dependencies using uv (as root, before switching users)
 RUN uv sync --frozen --no-dev
 
-# Copy agent code (current directory)
-COPY . ./
+# Copy agent code (from src/travel-assistant-agent/ relative to build context at agents/a2a/)
+COPY src/travel-assistant-agent/ ./
 
 # Create non-root user
 RUN useradd -m -u 1000 bedrock_agentcore
