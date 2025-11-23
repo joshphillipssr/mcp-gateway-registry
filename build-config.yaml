@@ -13,9 +13,9 @@
 # The build scripts will automatically use the correct ECR registry for your region.
 
 aws:
-  account_id: "605134468121"  # Default account (overridden by AWS credentials)
-  region: "us-west-2"         # Default region (overridden by AWS_REGION env var)
-  ecr_registry: "605134468121.dkr.ecr.us-west-2.amazonaws.com"  # Default registry (constructed dynamically)
+  account_id: "123456789012"  # Placeholder - overridden by AWS credentials at runtime
+  region: "us-west-2"         # Default region - override with AWS_REGION env var
+  ecr_registry: "123456789012.dkr.ecr.us-west-2.amazonaws.com"  # Placeholder - constructed dynamically at runtime
 
 images:
   # ========================================
