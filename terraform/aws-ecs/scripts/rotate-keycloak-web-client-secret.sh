@@ -1,15 +1,22 @@
 #!/bin/bash
 
-# Script to configure the mcp-gateway-web client in Keycloak with the generated secret
+# Rotate and sync mcp-gateway-web client secret between Keycloak and AWS Secrets Manager
+#
 # PREREQUISITES:
-#   - Keycloak must be fully initialized (run keycloak/setup/init-keycloak.sh first)
+#   - Keycloak must be fully initialized (run init-keycloak.sh first)
 #   - mcp-gateway-web client must exist in Keycloak
-#   - Keycloak admin credentials must be configured in terraform.tfvars
+#   - Keycloak admin credentials must be configured in terraform.tfvars or .env
+#   - AWS Secrets Manager must have mcp-gateway-keycloak-client-secret
 #
 # This script:
-# 1. Retrieves the client secret from AWS Secrets Manager
-# 2. Authenticates to Keycloak admin console
-# 3. Updates the mcp-gateway-web client secret to match Secrets Manager
+# 1. Connects to Keycloak admin console
+# 2. Generates a NEW client secret in Keycloak (Keycloak is source of truth)
+# 3. Updates AWS Secrets Manager with the new Keycloak-generated secret
+#
+# Use this for:
+#   - Secret rotation (security best practice)
+#   - Syncing Keycloak and AWS Secrets Manager when out of sync
+#   - After manual client modifications in Keycloak admin console
 
 set -e
 
@@ -28,7 +35,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(dirname "$TERRAFORM_DIR")"
 
-print_info "Setting up Keycloak client for mcp-gateway-web"
+print_info "Rotating Keycloak client secret for mcp-gateway-web"
 
 # Try to load from .env file first (same as init-keycloak.sh)
 if [ -f "$PROJECT_ROOT/.env" ]; then
@@ -157,7 +164,7 @@ print_success "Client configuration verified"
 
 echo ""
 echo "=================================================="
-echo "Keycloak Client Setup Complete!"
+echo "Keycloak Client Secret Rotation Complete!"
 echo "=================================================="
 echo ""
 echo "Client Details:"
@@ -170,7 +177,11 @@ echo "  Enabled: $(echo "$CLIENT_CONFIG" | jq -r '.enabled')"
 echo "  Auth Type: $(echo "$CLIENT_CONFIG" | jq -r '.clientAuthenticatorType')"
 echo "  Public Client: $(echo "$CLIENT_CONFIG" | jq -r '.publicClient')"
 echo ""
+echo "Secret Sync Status:"
+echo "  ✓ New secret generated in Keycloak"
+echo "  ✓ AWS Secrets Manager updated"
+echo ""
 echo "Next Steps:"
-echo "  1. Deploy the registry tasks with the new KEYCLOAK_CLIENT_SECRET"
-echo "  2. Verify login at: https://$(echo "$KEYCLOAK_DOMAIN" | cut -d. -f1-2).mycorp.click/"
+echo "  1. Restart registry ECS tasks to pick up new secret from Secrets Manager"
+echo "  2. Verify login functionality at: https://registry.mycorp.click"
 echo ""

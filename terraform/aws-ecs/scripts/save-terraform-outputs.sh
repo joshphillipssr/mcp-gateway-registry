@@ -6,7 +6,7 @@
 # This script:
 # 1. Runs terraform output to get all deployed resource information
 # 2. Saves output as JSON to terraform-outputs.json in the scripts directory
-# 3. Creates a backup of previous outputs
+# 3. Creates a backup of previous outputs in terraform/.terraform/ directory
 #
 # Usage:
 #   ./save-terraform-outputs.sh [OPTIONS]
@@ -23,6 +23,11 @@
 #
 #   # Save to custom filename (to scripts directory)
 #   ./save-terraform-outputs.sh --output-file my-outputs.json
+#
+#   # Disable backups
+#   ./save-terraform-outputs.sh --no-backup
+#
+# Note: Backups are stored in terraform/aws-ecs/.terraform/ which is gitignored
 #
 ################################################################################
 
@@ -42,7 +47,8 @@ CREATE_BACKUP=true
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-OUTPUT_DIR="$SCRIPT_DIR"  # Save to scripts directory
+OUTPUT_DIR="$SCRIPT_DIR"  # Save outputs to scripts directory
+BACKUP_DIR=""  # Will be set to .terraform directory after validation
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $*"
@@ -97,6 +103,15 @@ if [[ ! -d "$TERRAFORM_PATH" ]]; then
     exit 1
 fi
 
+# Set backup directory to .terraform within terraform directory
+BACKUP_DIR="$TERRAFORM_PATH/.terraform"
+
+# Create .terraform directory if it doesn't exist
+if [[ ! -d "$BACKUP_DIR" ]]; then
+    log_info "Creating .terraform directory for backups: $BACKUP_DIR"
+    mkdir -p "$BACKUP_DIR"
+fi
+
 # Get absolute output path
 if [[ "$OUTPUT_FILE" != /* ]]; then
     OUTPUT_FILE="$OUTPUT_DIR/$OUTPUT_FILE"
@@ -107,12 +122,13 @@ log_info "Terraform Outputs Export Script"
 log_info "=========================================="
 log_info "Terraform Directory: $TERRAFORM_PATH"
 log_info "Output File: $OUTPUT_FILE"
+log_info "Backup Directory: $BACKUP_DIR"
 log_info "Create Backup: $CREATE_BACKUP"
 log_info "=========================================="
 
 # Create backup if file exists
 if [[ -f "$OUTPUT_FILE" && "$CREATE_BACKUP" == "true" ]]; then
-    BACKUP_FILE="${OUTPUT_FILE}.backup-${TIMESTAMP}"
+    BACKUP_FILE="$BACKUP_DIR/terraform-outputs.json.backup-${TIMESTAMP}"
     log_info "Creating backup of previous outputs..."
     cp "$OUTPUT_FILE" "$BACKUP_FILE"
     log_success "Backup created: $BACKUP_FILE"

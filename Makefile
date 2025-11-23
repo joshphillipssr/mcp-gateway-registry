@@ -145,18 +145,12 @@ IMAGE_TAG ?= latest
 
 build-keycloak:
 	@echo "🐋 Building Keycloak Docker image..."
-	docker build \
-		-t keycloak:$(IMAGE_TAG) \
-		-f docker/keycloak/Dockerfile \
-		docker/keycloak
+	@$(MAKE) build IMAGE=keycloak
 	@echo "✅ Image built: keycloak:$(IMAGE_TAG)"
 
 build-and-push-keycloak:
 	@echo "📦 Building and pushing Keycloak to ECR..."
-	./terraform/aws-ecs/scripts/build-and-push-keycloak.sh \
-		--aws-region $(AWS_REGION) \
-		--aws-profile $(AWS_PROFILE) \
-		--image-tag $(IMAGE_TAG)
+	@$(MAKE) build-push IMAGE=keycloak
 	@echo "✅ Keycloak image built and pushed successfully"
 
 deploy-keycloak:
