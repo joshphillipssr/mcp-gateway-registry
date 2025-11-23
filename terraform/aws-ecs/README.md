@@ -252,8 +252,8 @@ dig NS mycorp.click +short
 
 The infrastructure supports two domain configuration modes:
 
-#### 1. Regional Domains (Recommended for Multi-Region)
-When `use_regional_domains = true`, domains are automatically constructed based on the deployment region:
+#### 1. Regional Domains (Recommended - DEFAULT)
+When `use_regional_domains = true` (the default), domains are automatically constructed based on the deployment region:
 
 ```
 Format: {service}.{region}.{base_domain}
@@ -286,9 +286,9 @@ Your deployment-specific values. This file is **not committed to git**.
 # Region - MUST match where your ECR images are located
 aws_region = "us-east-1"
 
-# Domain Configuration
-use_regional_domains = true
-base_domain          = "mycorp.click"
+# Domain Configuration (use_regional_domains = true is the default)
+use_regional_domains = true  # Default: true (creates region-specific domains)
+base_domain          = "mycorp.click"  # Change to YOUR domain
 
 # Container Images - Update region AND account ID in ALL URIs
 # Get account ID: aws sts get-caller-identity --query Account --output text
@@ -418,11 +418,11 @@ ingress_cidr_blocks = [
 # ============================================================================
 # DOMAIN CONFIGURATION
 # ============================================================================
-# Option 1: Regional domains (RECOMMENDED - auto-creates kc.us-east-1.mycorp.click)
-use_regional_domains = true
+# Option 1: Regional domains (DEFAULT - auto-creates kc.us-east-1.mycorp.click)
+use_regional_domains = true  # This is the default, shown here for clarity
 base_domain          = "mycorp.click"  # Change to YOUR domain
 
-# Option 2: Static domains (for single region only)
+# Option 2: Static domains (override default for single region only)
 # use_regional_domains = false
 # keycloak_domain = "kc.mycorp.click"
 # root_domain     = "mycorp.click"
