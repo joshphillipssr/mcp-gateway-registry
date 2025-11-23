@@ -396,7 +396,95 @@ cp terraform.tfvars.example terraform.tfvars
 vim terraform.tfvars  # or nano, code, etc.
 ```
 
-**Critical parameters to update:**
+**MANDATORY: Edit Required Parameters**
+
+Before running `terraform apply`, you **MUST** edit the following parameters in `terraform.tfvars`:
+
+### Required Parameters (Must Change)
+
+1. **AWS Region** - Set to match where you pushed ECR images
+   ```hcl
+   aws_region = "us-east-1"  # Change to your target region
+   ```
+
+2. **Domain Configuration** - Choose ONE of these options:
+
+   **Option A: Regional Domains (RECOMMENDED - Already the default)**
+   ```hcl
+   # Keep the default use_regional_domains = true
+   # Only change base_domain to YOUR domain
+   use_regional_domains = true  # Already set by default
+   base_domain = "mycorp.click"  # ← CHANGE THIS to your Route53 domain
+   ```
+
+   **Important for first-time users:**
+   - `use_regional_domains = true` is already the default - you don't need to set it
+   - You MUST have a domain registered with Route53 (or configured to use Route53 nameservers)
+   - The infrastructure will create: `kc.us-east-1.mycorp.click` and `registry.us-east-1.mycorp.click`
+   - Replace `mycorp.click` with YOUR actual domain name
+
+   **Option B: Static Domains (For single region only)**
+   ```hcl
+   use_regional_domains = false  # Override the default
+   keycloak_domain = "kc.example.com"
+   root_domain = "example.com"
+   ```
+
+3. **Container Image URIs** - Update ALL image URIs with your AWS account ID and region
+   ```hcl
+   # Get your account ID: aws sts get-caller-identity --query Account --output text
+   registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-registry:latest"
+   auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-auth-server:latest"
+   currenttime_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-currenttime:latest"
+   mcpgw_image_uri       = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-mcpgw:latest"
+   realserverfaketools_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-realserverfaketools:latest"
+   flight_booking_agent_image_uri   = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
+   travel_assistant_agent_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
+   ```
+
+4. **Network Access Control** - **MANDATORY: Update to allow access from your location**
+   ```hcl
+   # Get your IP: curl -s ifconfig.me
+   # You MUST change this to your actual IP addresses
+   # These IPs will be allowed to access the ALB endpoints
+   ingress_cidr_blocks = [
+     "YOUR.IP.ADDRESS/32",  # Replace with your actual IP (REQUIRED)
+     # Add more IPs as needed:
+     # "OTHER.IP.ADDRESS/32",
+   ]
+   ```
+
+   **Why this is mandatory:**
+   - The ALB security groups use this list to control access
+   - Without updating this, you won't be able to access the services
+   - Find your IP with: `curl -s ifconfig.me`
+   - Use `/32` for single IP addresses
+   - Use `/24` or similar CIDR notation for IP ranges
+
+5. **Keycloak Credentials** - Change default passwords (CRITICAL for production)
+   ```hcl
+   keycloak_admin          = "admin"
+   keycloak_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"  # min 12 chars
+
+   keycloak_database_username = "keycloak"
+   keycloak_database_password = "CHANGE_ME_DB_PASSWORD_456!"   # min 12 chars
+   ```
+
+**Quick configuration helper script:**
+```bash
+# Get values automatically
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+MY_IP=$(curl -s ifconfig.me)
+
+echo "=== Configuration Values ==="
+echo "AWS Account ID: $AWS_ACCOUNT_ID"
+echo "Your Public IP: $MY_IP/32"
+echo "AWS Region: $AWS_REGION"
+echo ""
+echo "Use these values when editing terraform.tfvars"
+```
+
+**Complete Example terraform.tfvars:**
 
 ```hcl
 # ============================================================================
