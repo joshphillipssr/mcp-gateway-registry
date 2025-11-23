@@ -119,7 +119,8 @@ cd ../.. && make build-push && cd terraform/aws-ecs
 
 # 3. Configure deployment
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values (region, domain, IPs)
+# ⚠️ CRITICAL: See "MANDATORY: Edit Required Parameters" section below
+# Your installation will NOT work without editing these required values
 
 # 4. Deploy infrastructure
 terraform init
