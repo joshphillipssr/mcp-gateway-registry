@@ -548,7 +548,7 @@ create_users() {
         "credentials": [
             {
                 "type": "password",
-                "value": "'${INITIAL_ADMIN_PASSWORD:-changeme}'",
+                "value": "'${INITIAL_ADMIN_PASSWORD}'",
                 "temporary": false
             }
         ]
@@ -1009,6 +1009,15 @@ main() {
         echo "  2. Ensure AWS credentials are configured and SSM parameter '/keycloak/admin_password' exists"
         exit 1
     fi
+
+    # Check if initial admin password is set (for realm admin user creation)
+    if [ -z "$INITIAL_ADMIN_PASSWORD" ]; then
+        echo -e "${RED}Error: INITIAL_ADMIN_PASSWORD environment variable is required${NC}"
+        echo "This password will be used for the 'admin' user in the mcp-gateway realm."
+        echo "Please export INITIAL_ADMIN_PASSWORD before running this script:"
+        echo "  export INITIAL_ADMIN_PASSWORD='YourSecurePassword123'"
+        exit 1
+    fi
     
     # Wait for Keycloak to be ready
     wait_for_keycloak
@@ -1066,7 +1075,7 @@ main() {
     echo "Realm: ${REALM}"
     echo ""
     echo "Users created:"
-    echo "  - admin/${INITIAL_ADMIN_PASSWORD:-changeme} (realm admin - all groups including mcp-registry-admin)"
+    echo "  - admin/${INITIAL_ADMIN_PASSWORD} (realm admin - all groups including mcp-registry-admin)"
     echo "  - testuser/${INITIAL_USER_PASSWORD:-testpass} (test user - user/developer/operator groups)"
     echo "  - lob1-user/${LOB1_USER_PASSWORD:-lob1pass} (LOB1 user - registry-users-lob1 group)"
     echo "  - lob2-user/${LOB2_USER_PASSWORD:-lob2pass} (LOB2 user - registry-users-lob2 group)"

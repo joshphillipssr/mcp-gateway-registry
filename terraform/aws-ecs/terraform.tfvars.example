@@ -18,6 +18,10 @@
 #   - http://mcp-gateway-alb-*.us-east-1.elb.amazonaws.com (ports 80, 443)
 #   - http://mcp-gateway-alb-*.us-east-1.elb.amazonaws.com:7860 (Registry)
 #   - http://mcp-gateway-alb-*.us-east-1.elb.amazonaws.com:8888 (Auth Server)
+# Options:
+#   - Specific IP: "YOUR.IP.ADDRESS/32" (most secure)
+#   - Public access: "0.0.0.0/0" (use with caution)
+#   - Enterprise CIDR: "10.0.0.0/8" (your organization's network)
 ingress_cidr_blocks = [
   "71.114.44.148/32",      # Example: Your laptop IP
   "44.192.72.20/32"        # Example: Your EC2 instance IP
@@ -57,19 +61,19 @@ keycloak_database_password = "CHANGE-ME-DB-PASSWORD"
 # ============================================================================
 
 # Registry image from ECR
-registry_image_uri = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-registry:latest"
+registry_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-registry:latest"
 
 # Auth server image from ECR
-auth_server_image_uri = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-auth-server:latest"
+auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-auth-server:latest"
 
 # MCP Server images from ECR
-currenttime_image_uri         = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-currenttime:latest"
-mcpgw_image_uri               = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-mcpgw:latest"
-realserverfaketools_image_uri = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-realserverfaketools:latest"
+currenttime_image_uri         = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-currenttime:latest"
+mcpgw_image_uri               = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-mcpgw:latest"
+realserverfaketools_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-realserverfaketools:latest"
 
 # A2A Agent images from ECR
-flight_booking_agent_image_uri   = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
-travel_assistant_agent_image_uri = "YOUR_ACCOUNT.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
+flight_booking_agent_image_uri   = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
+travel_assistant_agent_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
 
 # ============================================================================
 # OPTIONAL: ADDITIONAL CONFIGURATION

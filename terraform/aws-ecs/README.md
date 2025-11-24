@@ -11,7 +11,7 @@ Production-grade, multi-region infrastructure for the MCP Gateway Registry using
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Regional Deployment](#regional-deployment)
+- [**Regional Deployment** ⭐ (Recommended for first-time deployments)](#regional-deployment)
 - [Post-Deployment](#post-deployment)
 - [Operations](#operations-and-maintenance)
 - [Container Management](#container-build-and-deployment)
@@ -36,75 +36,41 @@ The infrastructure is deployed within a dedicated VPC spanning two availability 
 - Health checks to ensure task availability
 - Target groups with dynamic port mapping
 
-**Keycloak ALB (Private Subnets)**
+**Keycloak ALB (Private Subnets)***
 - Internal load balancer for Keycloak services
 - Isolated from direct internet access
 - Dedicated SSL certificate for Keycloak domain
 - Health check endpoint monitoring
 
+*Currently deployed in public subnets for initial setup and management. Will be updated soon to use internal ALB with a bastion host in the VPC for secure Keycloak admin console access from within the VPC for management purposes.
+
 ### ECS Cluster and Services
 
 The infrastructure runs on an ECS cluster with Fargate launch type, eliminating server management. Three primary service types run as containerized tasks:
 
-**Registry Tasks**
-- MCP server registry and discovery service
-- Auto-scaling group manages task count based on CPU/memory
-- Deployed across both availability zones
-- Retrieves secrets from AWS Secrets Manager
-- Writes logs to CloudWatch Logs
-- Stores server metadata in Amazon EFS
+**Registry Tasks** provide the core MCP server registry and discovery service. An auto-scaling group manages task count based on CPU and memory utilization, with tasks deployed across both availability zones for high availability. The registry retrieves secrets from AWS Secrets Manager for secure credential management, writes logs to CloudWatch Logs for centralized monitoring, and stores server metadata in Amazon EFS for persistent, shared access.
 
-**Auth Server Tasks**
-- OAuth2/OIDC authentication and authorization
-- Session management and token validation
-- Integrated with Keycloak for identity federation
-- Auto-scales based on demand
-- Stores user data in Aurora PostgreSQL Serverless
+**Auth Server Tasks** handle OAuth2/OIDC authentication and authorization for the entire platform. These tasks manage user sessions and token validation, integrate with Keycloak for identity federation, and auto-scale based on demand. User data and session information is stored in Aurora PostgreSQL Serverless for reliable, scalable persistence.
 
-**Keycloak Tasks**
-- Identity and access management
-- User authentication and SSO
-- Admin console for user management
-- Connected to Aurora PostgreSQL for persistence
-- Stores configuration in Amazon EFS
+**Keycloak Tasks** serve as the identity and access management layer, providing user authentication, single sign-on (SSO), and an admin console for user management. Keycloak connects to Aurora PostgreSQL for data persistence and stores configuration files in Amazon EFS for shared access across multiple task instances.
 
 ### Data Layer
 
-**Amazon Aurora PostgreSQL Serverless v2**
-- Auto-scaling database capacity (0.5 to 2 ACUs)
-- Stores user credentials, sessions, and application data
-- Automatic backups and point-in-time recovery
-- Multi-AZ deployment for high availability
-- RDS Proxy for connection pooling
+**Amazon Aurora PostgreSQL Serverless v2** provides a fully managed, auto-scaling database with capacity ranging from 0.5 to 2 ACUs based on workload demands. The database stores user credentials, session data, and application state with automatic backups and point-in-time recovery capabilities. Deployed in a multi-AZ configuration for high availability, Aurora uses RDS Proxy for efficient connection pooling and management across ECS tasks.
 
-**Amazon EFS (Elastic File System)**
-- Shared persistent storage for Keycloak configuration
-- Server metadata and registry information
-- Accessible from all ECS tasks
-- Automatic scaling and high availability
+**Amazon EFS (Elastic File System)** serves as shared persistent storage accessible from all ECS tasks across availability zones. EFS stores Keycloak configuration files, server metadata, and registry information that needs to be shared between multiple container instances. The file system automatically scales capacity and throughput based on storage requirements while maintaining high availability across multiple availability zones.
 
 ### Observability
 
-**CloudWatch Logs**
-- Centralized logging for all ECS tasks
-- Separate log groups per service
-- Log retention policies
-- Integration with CloudWatch Alarms
+**CloudWatch Logs** provides centralized logging for all ECS tasks with separate log groups created for each service to organize and isolate log streams. Log retention policies automatically expire old logs after a configurable period, and the logs integrate with CloudWatch Alarms to trigger alerts based on specific patterns or error rates found in the log data.
 
-**CloudWatch Alarms**
-- CPU and memory utilization monitoring
-- Database connection tracking
-- HTTP error rate alerting
-- Integration with Amazon SNS for notifications
+**CloudWatch Alarms** continuously monitor key infrastructure and application metrics including CPU and memory utilization across all ECS tasks, database connection counts and pool exhaustion, and HTTP error rates from the load balancers. When alarm thresholds are breached, notifications are sent through Amazon SNS to configured endpoints such as email, SMS, or other automated incident response systems.
 
-**AWS Secrets Manager**
-- Secure storage of sensitive credentials
-- Keycloak admin credentials
-- Database passwords
-- Automatic rotation support
-- Retrieved as environment variables by ECS tasks
+**AWS Secrets Manager** provides secure storage and lifecycle management for sensitive credentials including Keycloak admin passwords, database connection strings, and API keys. ECS tasks retrieve these secrets at runtime as environment variables, eliminating the need to hardcode credentials in container images or configuration files. Secrets Manager supports automatic rotation of credentials on a scheduled basis to enhance security posture.
 
 ## Quick Start
+
+> **📖 For first-time deployments, we recommend following the detailed [Regional Deployment Guide](#regional-deployment) below for step-by-step instructions.**
 
 **Deploy in 5 steps:**
 
@@ -122,13 +88,30 @@ cp terraform.tfvars.example terraform.tfvars
 # ⚠️ CRITICAL: See "MANDATORY: Edit Required Parameters" section below
 # Your installation will NOT work without editing these required values
 
-# 4. Deploy infrastructure
+# 4. Deploy infrastructure (two-stage deployment)
 terraform init
+
+# Stage 1: Create and validate SSL certificates first
+terraform apply \
+  -target=aws_acm_certificate.keycloak \
+  -target=aws_acm_certificate.registry \
+  -target=aws_acm_certificate_validation.keycloak \
+  -target=aws_acm_certificate_validation.registry
+
+# Stage 2: Deploy remaining infrastructure (~10 minutes)
 terraform apply
 
 # 5. Initialize Keycloak (after DNS propagates, ~10 minutes)
+# IMPORTANT: Set the initial admin password for the mcp-gateway realm
+export INITIAL_ADMIN_PASSWORD='YourSecurePassword123'
 ./scripts/init-keycloak.sh
+
+# 6. Open the Registry web interface
+# Visit https://registry.us-east-1.mycorp.click in your browser
+# Login with credentials: admin / YourSecurePassword123 (from INITIAL_ADMIN_PASSWORD)
 ```
+
+**Note:** First-time deployments require a two-stage process due to SSL certificate dependencies. For detailed step-by-step instructions, see the [Regional Deployment](#regional-deployment) section below.
 
 ## Prerequisites
 
@@ -196,12 +179,7 @@ aws configure
 # Default region: us-east-1
 # Default output format: json
 
-# Method 2: Environment variables
-export AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="YOUR_SECRET_KEY"
-export AWS_REGION="us-east-1"
-
-# Method 3: Named profile
+# Method 2: Named profile
 aws configure --profile mcp-gateway
 export AWS_PROFILE=mcp-gateway
 
@@ -212,6 +190,8 @@ aws sts get-caller-identity
 ### Domain Configuration
 
 **You need a domain with Route53 hosted zone:**
+
+**NOTE: This guide uses `mycorp.click` as an example domain throughout. Replace this with your domain of choice.**
 
 ```bash
 # Option 1: Register domain through Route53
@@ -248,6 +228,8 @@ dig NS mycorp.click +short
 - **State Management:** Terraform state is stored locally by default. For production, use S3 backend (see [Security](#security-considerations)).
 
 ## Regional Deployment
+
+**⏱️ Total Time: ~30-40 minutes**
 
 ### Understanding Regional Configuration
 
@@ -293,14 +275,14 @@ base_domain          = "mycorp.click"  # Change to YOUR domain
 
 # Container Images - Update region AND account ID in ALL URIs
 # Get account ID: aws sts get-caller-identity --query Account --output text
-registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-registry:latest"
-auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-auth-server:latest"
+registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-registry:latest"
+auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-auth-server:latest"
 # ... (update all 7 image URIs - see Regional Deployment section for complete list)
 
 # Network Access Control
 # Get your IP: curl -s ifconfig.me
 ingress_cidr_blocks = [
-  "YOUR.IP.ADDRESS/32",  # Your office/home IP
+  "YOUR.IP.ADDRESS/32",  # Your office/home IP, or use 0.0.0.0/0 for public access, or enterprise CIDR blocks
 ]
 
 # Credentials (CRITICAL: change for production)
@@ -328,7 +310,7 @@ Default values and variable types. Committed to git. **Only modify** if adding n
 
 Follow these steps to deploy infrastructure in any AWS region:
 
-**Step 1: Build and Push Container Images**
+**Step 1: Build and Push Container Images (~15 minutes)**
 
 Container images must be built and pushed to ECR **in your target region** before terraform deployment.
 
@@ -434,13 +416,13 @@ Before running `terraform apply`, you **MUST** edit the following parameters in 
 3. **Container Image URIs** - Update ALL image URIs with your AWS account ID and region
    ```hcl
    # Get your account ID: aws sts get-caller-identity --query Account --output text
-   registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-registry:latest"
-   auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-auth-server:latest"
-   currenttime_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-currenttime:latest"
-   mcpgw_image_uri       = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-mcpgw:latest"
-   realserverfaketools_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-realserverfaketools:latest"
-   flight_booking_agent_image_uri   = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
-   travel_assistant_agent_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
+   registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-registry:latest"
+   auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-auth-server:latest"
+   currenttime_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-currenttime:latest"
+   mcpgw_image_uri       = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-mcpgw:latest"
+   realserverfaketools_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-realserverfaketools:latest"
+   flight_booking_agent_image_uri   = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
+   travel_assistant_agent_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
    ```
 
 4. **Network Access Control** - **MANDATORY: Update to allow access from your location**
@@ -465,10 +447,10 @@ Before running `terraform apply`, you **MUST** edit the following parameters in 
 5. **Keycloak Credentials** - Change default passwords (CRITICAL for production)
    ```hcl
    keycloak_admin          = "admin"
-   keycloak_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"  # min 12 chars
+   keycloak_admin_password = "CHANGE_ME_STRONG_PASSWORD_123"  # min 12 chars
 
    keycloak_database_username = "keycloak"
-   keycloak_database_password = "CHANGE_ME_DB_PASSWORD_456!"   # min 12 chars
+   keycloak_database_password = "CHANGE_ME_DB_PASSWORD_456"   # min 12 chars
    ```
 
 **Quick configuration helper script:**
@@ -522,22 +504,22 @@ base_domain          = "mycorp.click"  # Change to YOUR domain
 # CRITICAL: Update BOTH the region and account ID in ALL URIs below
 # Get your account ID: aws sts get-caller-identity --query Account --output text
 
-registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-registry:latest"
-auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-auth-server:latest"
-currenttime_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-currenttime:latest"
-mcpgw_image_uri       = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-mcpgw:latest"
-realserverfaketools_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-realserverfaketools:latest"
-flight_booking_agent_image_uri   = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
-travel_assistant_agent_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
+registry_image_uri    = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-registry:latest"
+auth_server_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-auth-server:latest"
+currenttime_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-currenttime:latest"
+mcpgw_image_uri       = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-mcpgw:latest"
+realserverfaketools_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-realserverfaketools:latest"
+flight_booking_agent_image_uri   = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-flight-booking-agent:latest"
+travel_assistant_agent_image_uri = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_AWS_REGION.amazonaws.com/mcp-gateway-travel-assistant-agent:latest"
 
 # ============================================================================
 # CREDENTIALS - CHANGE THESE FOR PRODUCTION
 # ============================================================================
 keycloak_admin          = "admin"
-keycloak_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"  # min 12 chars
+keycloak_admin_password = "CHANGE_ME_STRONG_PASSWORD_123"  # min 12 chars
 
 keycloak_database_username = "keycloak"
-keycloak_database_password = "CHANGE_ME_DB_PASSWORD_456!"   # min 12 chars
+keycloak_database_password = "CHANGE_ME_DB_PASSWORD_456"   # min 12 chars
 ```
 
 **Quick configuration script:**
@@ -747,7 +729,8 @@ export AWS_REGION=us-east-1
 export KEYCLOAK_ADMIN_URL="https://kc.us-east-1.mycorp.click"
 export KEYCLOAK_REALM="mcp-gateway"
 export KEYCLOAK_ADMIN="admin"
-export KEYCLOAK_ADMIN_PASSWORD="YOUR_PASSWORD_FROM_TFVARS"  # From terraform.tfvars
+export KEYCLOAK_ADMIN_PASSWORD="YOUR_PASSWORD_FROM_TFVARS"  # From terraform.tfvars keycloak_admin_password
+export INITIAL_ADMIN_PASSWORD="YOUR_SECURE_REALM_ADMIN_PASSWORD"  # Password for 'admin' user in mcp-gateway realm
 
 # Run initialization script
 ./scripts/init-keycloak.sh
@@ -864,11 +847,13 @@ curl https://kc.us-east-1.mycorp.click/realms/mcp-gateway
 open https://registry.us-east-1.mycorp.click
 ```
 
-You should see the login page. Login with the default admin credentials for the **mcp-gateway** realm:
+You should see the login page. Login with the admin credentials for the **mcp-gateway** realm:
 - **Username**: `admin`
-- **Password**: `changeme` (default, or set via `INITIAL_ADMIN_PASSWORD` environment variable when running init-keycloak.sh)
+- **Password**: The password you set via `INITIAL_ADMIN_PASSWORD` environment variable when running init-keycloak.sh
 
-**Note**: This is different from the Keycloak admin console password (`keycloak_admin_password` in terraform.tfvars), which is used to access the Keycloak admin console at `https://kc.us-east-1.mycorp.click/admin`.
+**Important Password Distinction**:
+- **Realm Admin Password** (`INITIAL_ADMIN_PASSWORD`): Used to log into the MCP Gateway Registry at `https://registry.us-east-1.mycorp.click`
+- **Keycloak Master Admin Password** (`keycloak_admin_password` from terraform.tfvars): Used to access the Keycloak admin console at `https://kc.us-east-1.mycorp.click/admin`
 
 ![MCP Gateway Registry First Login](img/MCP-Gateway-Registry-first-login.png)
 
@@ -1096,24 +1081,19 @@ aws logs filter-log-events \
 
 The repository uses a unified container build system with `build-config.yaml` as the **single source of truth**.
 
-**All 12 Container Images:**
+**All Container Images:**
 
 | Image Name | Purpose | Size | Build Time |
 |------------|---------|------|------------|
-| `registry` | MCP Gateway with nginx, FAISS, ML models | ~2GB | ~8 min |
-| `auth_server` | OAuth2/OIDC authentication server | ~500MB | ~3 min |
-| `keycloak` | Identity provider (Keycloak + custom config) | ~800MB | ~2 min |
-| `scopes_init` | Keycloak scope initialization utility | ~200MB | ~2 min |
-| `metrics_service` | Metrics collection and monitoring | ~300MB | ~2 min |
-| `currenttime` | Example MCP server (current time) | ~100MB | ~1 min |
-| `mcpgw` | MCP Gateway example server | ~100MB | ~1 min |
-| `realserverfaketools` | Testing MCP server | ~100MB | ~1 min |
-| `fininfo` | Financial information MCP server | ~100MB | ~1 min |
-| `mcp_server` | Generic MCP server template | ~100MB | ~1 min |
-| `flight_booking_agent` | A2A agent for flight booking | ~400MB | ~3 min |
-| `travel_assistant_agent` | A2A agent for travel assistance | ~400MB | ~3 min |
+| `registry` | MCP Gateway with nginx, FAISS, ML models | ~4.6GB | ~8 min |
+| `mcpgw` | MCP Gateway core server | ~4.1GB | ~7 min |
+| `auth_server` | OAuth2/OIDC authentication server | ~244MB | ~3 min |
+| `currenttime` | Example MCP server (current time) | ~230MB | ~2 min |
+| `realserverfaketools` | Testing MCP server | ~230MB | ~2 min |
+| `flight_booking_agent` | A2A agent for flight booking | ~170MB | ~2 min |
+| `travel_assistant_agent` | A2A agent for travel assistance | ~170MB | ~2 min |
 
-**Total:** ~5GB across all images, ~30 minutes for complete build.
+**Total:** ~9.8GB across 7 images, ~25-30 minutes for complete build.
 
 ### Building Container Images
 
@@ -1887,9 +1867,8 @@ For issues or questions:
    - Check [AWS ECS Troubleshooting Guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/troubleshooting.html)
 
 5. **Community Support:**
-   - [GitHub Issues](https://github.com/your-org/mcp-gateway-registry/issues)
-   - [AWS Forums](https://forums.aws.amazon.com/)
+   - [GitHub Issues](https://github.com/agentic-community/mcp-gateway-registry/issues)
 
 ---
 
-**Built with ❤️ for infrastructure teams** | Contributions welcome | [License: MIT](../../LICENSE)
+
