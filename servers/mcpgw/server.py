@@ -24,7 +24,18 @@ import yaml # Added for scopes.yml parsing
 # Import embeddings client from registry
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "registry"))
+
+# Add registry to path - works in both Docker and local dev
+registry_path_docker = Path("/app/registry")
+registry_path_local = Path(__file__).parent.parent.parent / "registry"
+
+if registry_path_docker.exists():
+    sys.path.insert(0, str(registry_path_docker))
+elif registry_path_local.exists():
+    sys.path.insert(0, str(registry_path_local))
+else:
+    raise ImportError("Cannot find registry module. Ensure registry directory is accessible.")
+
 from embeddings import create_embeddings_client, EmbeddingsClient
 
 # Configure logging

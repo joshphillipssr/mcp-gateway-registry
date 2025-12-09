@@ -169,8 +169,10 @@ services:
   # MCP Gateway Server
   mcpgw-server:
     build:
-      context: servers/mcpgw
-      dockerfile: ../../docker/Dockerfile.mcp-server
+      context: .
+      dockerfile: docker/Dockerfile.mcp-server
+      args:
+        SERVER_DIR: servers/mcpgw
     environment:
       - PORT=8003
       - REGISTRY_BASE_URL=http://registry:7860
