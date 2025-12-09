@@ -401,37 +401,45 @@ class AgentService:
             logger.error(f"Invalid rating value: {rating}. Must be between 1 and 5.")
             raise ValueError("Rating must be between 1 and 5 (inclusive)")
         
-        # Get existing agent
+        # Get existing agent (Pydantic model)
         existing_agent = self.registered_agents[path]
 
-        # Ensure num_stars exists and ratings is a list
-        if "num_stars" not in existing_agent:
-            existing_agent["num_stars"] = 0.0
-        if "rating_details" not in existing_agent or not isinstance(existing_agent["rating_details"], list):
-            existing_agent["rating_details"] = []
+        # Convert to dict for modification
+        agent_dict = existing_agent.model_dump()
+
+        # Ensure rating_details is a list (should be by default from schema)
+        if "rating_details" not in agent_dict or agent_dict["rating_details"] is None:
+            agent_dict["rating_details"] = []
 
         # Check if this user has already rated; if so, update their rating
         user_found = False
-        for entry in existing_agent["rating_details"]:
+        for entry in agent_dict["rating_details"]:
             if entry.get("user") == username:
                 entry["rating"] = rating
                 user_found = True
                 break
-        
+
         # If no existing rating from this user, append a new one
         if not user_found:
-            existing_agent["rating_details"].append({
+            agent_dict["rating_details"].append({
                 "user": username,
                 "rating": rating,
             })
 
+            # Maintain a perfect rotating buffer of MAX_RATINGS entries
+            MAX_RATINGS = 100
+            if len(agent_dict["rating_details"]) > MAX_RATINGS:
+                # Remove the oldest entry to maintain exactly MAX_RATINGS entries
+                agent_dict["rating_details"].pop(0)
+                logger.info(f"Removed oldest rating to maintain {MAX_RATINGS} entries limit for agent at '{path}'")
+
         # Compute average rating
-        all_ratings = [entry["rating"] for entry in existing_agent["rating_details"]]
-        existing_agent["num_stars"] = float(sum(all_ratings) / len(all_ratings))
+        all_ratings = [entry["rating"] for entry in agent_dict["rating_details"]]
+        agent_dict["num_stars"] = float(sum(all_ratings) / len(all_ratings))
 
         # Validate updated agent
         try:
-            updated_agent = AgentCard(**existing_agent)
+            updated_agent = AgentCard(**agent_dict)
         except Exception as e:
             logger.error(f"Failed to validate updated agent: {e}")
             raise ValueError(f"Invalid agent update: {e}")
@@ -443,9 +451,9 @@ class AgentService:
         # Update in-memory registry
         self.registered_agents[path] = updated_agent
 
-        logger.info(f"Agent '{updated_agent.name}' ({path}) updated")
+        logger.info(f"Agent '{updated_agent.name}' ({path}) updated with rating {rating} from user {username}")
 
-        return existing_agent["num_stars"]
+        return agent_dict["num_stars"]
 
     def update_agent(
         self,

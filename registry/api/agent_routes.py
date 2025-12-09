@@ -503,14 +503,24 @@ async def rate_agent(
             detail="You do not have access to this agent",
         )
 
-    success = agent_service.update_rating(path, user_context["username"], request.rating)
-    if not success:
-        return JSONResponse(
+    try:
+        avg_rating = agent_service.update_rating(path, user_context["username"], request.rating)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error updating rating: {e}")
+        raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "Failed to save rating"},
+            detail="Failed to save rating",
         )
 
-    return {"message": "Rating added successfully"}
+    return {
+        "message": "Rating added successfully",
+        "average_rating": avg_rating,
+    }
 
 
 @router.get("/agents/{path:path}/rating")
