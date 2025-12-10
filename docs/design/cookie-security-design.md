@@ -27,11 +27,40 @@ Two key environment variables control cookie security behavior:
    - Prevents man-in-the-middle (MITM) attacks and session hijacking
    - **Production Requirement:** MUST be set to `true` when deployed with HTTPS
 
-2. **`SESSION_COOKIE_DOMAIN`** (default: `None`)
+2. **`SESSION_COOKIE_DOMAIN`** (default: `None` or empty string)
+   - **MUST be explicitly configured** - no automatic domain inference
    - When set (e.g., `.example.com`), enables cross-subdomain cookie sharing
    - Must start with a dot (`.`) to match all subdomains
-   - When `None`, cookies are scoped to the exact host that sets them
+   - When `None` or empty, cookies are scoped to the exact host that sets them
    - **Format:** `.example.com` (note the leading dot)
+   - **Important:** Set to empty string `""` for single-domain deployments
+   - **Examples:**
+     - Single domain (`mcpgateway.ddns.net`): Leave unset or set to `""`
+     - Cross-subdomain (`auth.example.com`, `registry.example.com`): Set to `.example.com`
+     - Multi-level domains (`registry.region-1.corp.company.internal`): Set to `.corp.company.internal` if cross-subdomain sharing needed
+
+### HTTPS Termination Detection
+
+**Critical Implementation Detail**: The auth server intelligently handles HTTPS termination at load balancers (ALB, nginx, etc.):
+
+- **Backend sees HTTP** but **load balancer terminates HTTPS** → Common in AWS ALB, nginx reverse proxy
+- **Solution**: Auth server checks `X-Forwarded-Proto` header to detect original protocol
+- **Behavior**: Cookie `secure` flag is set based on **original request protocol**, not backend protocol
+
+**Code Logic** ([`auth_server/server.py:1797-1803`](../auth_server/server.py)):
+```python
+x_forwarded_proto = request.headers.get("x-forwarded-proto", "")
+is_https = x_forwarded_proto == "https" or request.url.scheme == "https"
+
+# Only set secure=True if the original request was HTTPS
+cookie_secure_config = OAUTH2_CONFIG.get("session", {}).get("secure", False)
+cookie_secure = cookie_secure_config and is_https
+```
+
+**Important**:
+- If `SESSION_COOKIE_SECURE=true` but `is_https=False`, the secure flag will NOT be set
+- This prevents login failures when HTTPS termination is misconfigured
+- Check server logs for `is_https=True` in production to verify HTTPS detection is working
 
 ### Cookie Security Flags
 
@@ -60,13 +89,14 @@ This design is **SAFE** for:
      SESSION_COOKIE_DOMAIN=.company.com
      ```
 
-2. **Development and Testing**
-   - Local development on `localhost`
+2. **Local Development (localhost)**
+   - Local development on `localhost` via HTTP
    - Configuration:
      ```bash
-     SESSION_COOKIE_SECURE=false
-     SESSION_COOKIE_DOMAIN=  # Leave unset
+     SESSION_COOKIE_SECURE=false  # MUST be false for HTTP
+     SESSION_COOKIE_DOMAIN=       # Leave unset/empty
      ```
+   - **Important:** Setting `SESSION_COOKIE_SECURE=true` on localhost will cause login to fail because cookies with `secure=true` are only sent over HTTPS, and localhost typically runs over HTTP.
 
 ### ⚠️ Unsafe Deployment Scenarios
 
@@ -132,20 +162,38 @@ If you need multi-tenant deployment, consider these alternatives:
 
 Before deploying to production:
 
-- [ ] Set `SESSION_COOKIE_SECURE=true` in environment
+- [ ] Set `SESSION_COOKIE_SECURE=true` in environment (REQUIRED for HTTPS)
 - [ ] Verify HTTPS is properly configured and enforced
-- [ ] Set `SESSION_COOKIE_DOMAIN` to your root domain (e.g., `.example.com`)
-- [ ] Confirm you are deploying in a single-tenant architecture
-- [ ] Test cross-subdomain authentication between auth and registry services
-- [ ] Verify cookies are NOT transmitted over HTTP
-- [ ] Review logs for any cookie-related warnings
+- [ ] **IMPORTANT**: If using load balancer with HTTPS termination, ensure `X-Forwarded-Proto` header is set
+- [ ] Set `SESSION_COOKIE_DOMAIN` appropriately:
+  - **Empty string or unset** for single-domain deployments (RECOMMENDED - safest)
+  - **`.example.com`** only if you need cross-subdomain authentication
+- [ ] Confirm you are deploying in a single-tenant architecture (NOT multi-tenant SaaS)
+- [ ] Test cross-subdomain authentication between auth and registry services (if using domain cookies)
+- [ ] Verify cookies are NOT transmitted over HTTP in production
+- [ ] Review server logs for cookie configuration at startup:
+  - Check for `Auth server setting session cookie: secure=True`
+  - Verify `domain` setting matches your configuration
+  - Confirm `is_https=True` in production
 
-### Example Production Configuration
+### Example Production Configurations
 
+**Single-Domain Deployment (RECOMMENDED - Most Secure):**
 ```bash
-# .env for production
-SESSION_COOKIE_SECURE=true
-SESSION_COOKIE_DOMAIN=.example.com
+# .env for production - single domain (e.g., mcpgateway.example.com)
+SESSION_COOKIE_SECURE=true  # REQUIRED for HTTPS
+SESSION_COOKIE_DOMAIN=      # Empty = exact host only (safest)
+SESSION_COOKIE_NAME=mcp_gateway_session
+SESSION_MAX_AGE_SECONDS=28800  # 8 hours
+AUTH_SERVER_URL=http://auth-server:8888  # Internal URL
+AUTH_SERVER_EXTERNAL_URL=https://mcpgateway.example.com  # External URL
+```
+
+**Cross-Subdomain Deployment:**
+```bash
+# .env for production - cross-subdomain (e.g., auth.example.com + registry.example.com)
+SESSION_COOKIE_SECURE=true  # REQUIRED for HTTPS
+SESSION_COOKIE_DOMAIN=.example.com  # Note the leading dot
 SESSION_COOKIE_NAME=mcp_gateway_session
 SESSION_MAX_AGE_SECONDS=28800  # 8 hours
 AUTH_SERVER_URL=http://auth-server:8888  # Internal URL
@@ -156,11 +204,17 @@ AUTH_SERVER_EXTERNAL_URL=https://auth.example.com  # External URL
 
 The cookie security implementation is found in:
 
-- **Configuration:** [`registry/core/config.py`](../registry/core/config.py) (lines 25-26)
+- **Configuration:** [`registry/core/config.py`](../registry/core/config.py)
   - `session_cookie_secure`: Controls HTTPS-only flag
   - `session_cookie_domain`: Controls cross-subdomain sharing
 
-- **Cookie Setting:** [`registry/auth/routes.py`](../registry/auth/routes.py) (lines 139-158)
+- **Auth Server Cookie Setting:** [`auth_server/server.py`](../auth_server/server.py) (lines 1800-1831)
+  - X-Forwarded-Proto detection for HTTPS termination at load balancer
+  - Explicit configuration only - no automatic domain inference
+  - Conditional secure flag based on both config AND actual protocol
+  - All security flags properly set
+
+- **Registry Cookie Setting:** [`registry/auth/routes.py`](../registry/auth/routes.py) (lines 139-158)
   - Comprehensive security comments explaining single-tenant model
   - Conditional domain attribute application
   - All security flags properly set
@@ -169,7 +223,21 @@ The cookie security implementation is found in:
 
 ### Runtime Validation
 
-The application logs cookie configuration for debugging:
+The auth server logs detailed cookie configuration for debugging:
+
+```python
+logger.info(f"Auth server setting session cookie: secure={cookie_secure} (config={cookie_secure_config}, is_https={is_https}), samesite={cookie_samesite}, domain={cookie_domain or 'not set'}, x-forwarded-proto={x_forwarded_proto}, request_scheme={request.url.scheme}")
+```
+
+Key logging details:
+- **secure**: Final secure flag value (after protocol detection)
+- **config**: Configured SESSION_COOKIE_SECURE value
+- **is_https**: Whether the original request was HTTPS (based on X-Forwarded-Proto or request scheme)
+- **domain**: Configured domain or "not set"
+- **x-forwarded-proto**: Load balancer protocol header
+- **request_scheme**: Direct request protocol
+
+The registry logs successful login events:
 
 ```python
 logger.info(f"User '{username}' logged in successfully.")
@@ -195,20 +263,11 @@ In your browser's developer tools (Application/Storage → Cookies), verify:
 | `Domain` | `.example.com` | If configured |
 | `Path` | `/` | Always |
 
-## Version History
-
-- **2025-12-10:** Initial design document created
-  - Added `session_cookie_secure` configuration
-  - Added `session_cookie_domain` configuration
-  - Implemented comprehensive cookie security in `registry/auth/routes.py`
-  - Documented single-tenant security model and multi-tenant warnings
-
 ## References
 
 - [OWASP Session Management Cheat Sheet](https://cheatsheetsecurity.org/cheatsheets/session-management-cheat-sheet)
 - [MDN: Set-Cookie HTTP Header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
 - [RFC 6265: HTTP State Management Mechanism](https://datatracker.ietf.org/doc/html/rfc6265)
-- Security Analysis: [`.scratchpad/pr-258-security-analysis.md`](../.scratchpad/pr-258-security-analysis.md)
 
 ## Contact
 

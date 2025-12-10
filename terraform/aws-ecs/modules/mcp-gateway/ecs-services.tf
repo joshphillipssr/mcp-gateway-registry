@@ -370,6 +370,14 @@ module "ecs_service_registry" {
         {
           name  = "EMBEDDINGS_AWS_REGION"
           value = var.embeddings_aws_region
+        },
+        {
+          name  = "SESSION_COOKIE_SECURE"
+          value = tostring(var.session_cookie_secure)
+        },
+        {
+          name  = "SESSION_COOKIE_DOMAIN"
+          value = var.session_cookie_domain
         }
       ]
 
