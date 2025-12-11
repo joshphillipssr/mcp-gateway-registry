@@ -69,6 +69,25 @@ Anthropic Registry API (v0.1):
     # Get server details
     uv run python registry_management.py anthropic-get --server-name "io.mcpgateway/example-server" --version latest
 
+User Management (IAM):
+    # List all Keycloak users
+    uv run python registry_management.py user-list
+
+    # Search for specific users
+    uv run python registry_management.py user-list --search admin
+
+    # Create M2M service account
+    uv run python registry_management.py user-create-m2m --name my-service --groups developers,api-users
+
+    # Create human user
+    uv run python registry_management.py user-create-human --username john.doe --email john@example.com --first-name John --last-name Doe --groups developers
+
+    # Delete user
+    uv run python registry_management.py user-delete --username john.doe
+
+    # List Keycloak IAM groups
+    uv run python registry_management.py keycloak-groups
+
 Global Options (can be set via environment variables or command-line arguments):
     --registry-url URL       Registry base URL (overrides REGISTRY_URL env var)
     --aws-region REGION      AWS region (overrides AWS_REGION env var)
@@ -113,6 +132,12 @@ from registry_client import (
     RatingInfoResponse,
     AnthropicServerList,
     AnthropicServerResponse,
+    M2MAccountRequest,
+    HumanUserRequest,
+    KeycloakUserSummary,
+    UserListResponse,
+    UserDeleteResponse,
+    M2MAccountResponse,
 )
 
 # Configure logging
@@ -1257,6 +1282,186 @@ def cmd_anthropic_get_server(args: argparse.Namespace) -> int:
         return 1
 
 
+# User Management Command Handlers (Management API)
+
+
+def cmd_user_list(args: argparse.Namespace) -> int:
+    """
+    List Keycloak users.
+
+    Args:
+        args: Command arguments
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        client = _create_client(args)
+        response = client.list_users(
+            search=args.search if hasattr(args, 'search') and args.search else None,
+            limit=args.limit if hasattr(args, 'limit') else 500
+        )
+
+        if not response.users:
+            logger.info("No users found")
+            return 0
+
+        logger.info(f"Found {response.total} users\n")
+
+        for user in response.users:
+            enabled_icon = "✓" if user.enabled else "✗"
+            print(f"{enabled_icon} {user.username} (ID: {user.id})")
+            print(f"  Email: {user.email or 'N/A'}")
+            if user.firstName or user.lastName:
+                name = f"{user.firstName or ''} {user.lastName or ''}".strip()
+                print(f"  Name: {name}")
+            print(f"  Groups: {', '.join(user.groups) if user.groups else 'None'}")
+            print(f"  Enabled: {user.enabled}")
+            print()
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"List users failed: {e}")
+        return 1
+
+
+def cmd_user_create_m2m(args: argparse.Namespace) -> int:
+    """
+    Create M2M service account.
+
+    Args:
+        args: Command arguments
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        groups = [g.strip() for g in args.groups.split(",")]
+        client = _create_client(args)
+        result = client.create_m2m_account(
+            name=args.name,
+            groups=groups,
+            description=args.description if hasattr(args, 'description') and args.description else None
+        )
+
+        logger.info(f"M2M account created successfully\n")
+        print(f"Client ID: {result.client_id}")
+        print(f"Client Secret: {result.client_secret}")
+        print(f"Groups: {', '.join(result.groups)}")
+        print()
+        print("IMPORTANT: Save the client secret - it will not be shown again!")
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Create M2M account failed: {e}")
+        return 1
+
+
+def cmd_user_create_human(args: argparse.Namespace) -> int:
+    """
+    Create human user account.
+
+    Args:
+        args: Command arguments
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        groups = [g.strip() for g in args.groups.split(",")]
+        client = _create_client(args)
+        result = client.create_human_user(
+            username=args.username,
+            email=args.email,
+            first_name=args.first_name,
+            last_name=args.last_name,
+            groups=groups,
+            password=args.password if hasattr(args, 'password') and args.password else None
+        )
+
+        logger.info(f"User created successfully\n")
+        print(f"Username: {result.username}")
+        print(f"User ID: {result.id}")
+        print(f"Email: {result.email or 'N/A'}")
+        if result.firstName or result.lastName:
+            name = f"{result.firstName or ''} {result.lastName or ''}".strip()
+            print(f"Name: {name}")
+        print(f"Groups: {', '.join(result.groups)}")
+        print(f"Enabled: {result.enabled}")
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Create user failed: {e}")
+        return 1
+
+
+def cmd_user_delete(args: argparse.Namespace) -> int:
+    """
+    Delete a user.
+
+    Args:
+        args: Command arguments
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        if not args.force:
+            confirmation = input(f"Delete user '{args.username}'? (yes/no): ")
+            if confirmation.lower() != "yes":
+                logger.info("Operation cancelled")
+                return 0
+
+        client = _create_client(args)
+        result = client.delete_user(args.username)
+
+        logger.info(f"User '{result.username}' deleted successfully")
+        return 0
+
+    except Exception as e:
+        logger.error(f"Delete user failed: {e}")
+        return 1
+
+
+def cmd_keycloak_groups(args: argparse.Namespace) -> int:
+    """
+    List Keycloak IAM groups.
+
+    Args:
+        args: Command arguments
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        client = _create_client(args)
+        groups = client.list_keycloak_iam_groups()
+
+        if not groups:
+            logger.info("No Keycloak groups found")
+            return 0
+
+        logger.info(f"Found {len(groups)} Keycloak IAM groups:\n")
+
+        for group in groups:
+            print(f"Group: {group.get('name', 'Unknown')}")
+            print(f"  ID: {group.get('id', 'N/A')}")
+            if 'path' in group:
+                print(f"  Path: {group['path']}")
+            if 'attributes' in group and group['attributes']:
+                print(f"  Attributes: {json.dumps(group['attributes'], indent=4)}")
+            print()
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"List Keycloak groups failed: {e}")
+        return 1
+
+
 def main() -> int:
     """
     Main entry point for the CLI.
@@ -1638,6 +1843,86 @@ Examples:
         help="Output raw JSON response"
     )
 
+    # User Management Commands (Management API)
+
+    # List users command
+    user_list_parser = subparsers.add_parser("user-list", help="List Keycloak users")
+    user_list_parser.add_argument(
+        "--search",
+        help="Search string to filter users"
+    )
+    user_list_parser.add_argument(
+        "--limit",
+        type=int,
+        default=500,
+        help="Maximum number of results (default: 500)"
+    )
+
+    # Create M2M account command
+    user_m2m_parser = subparsers.add_parser("user-create-m2m", help="Create M2M service account")
+    user_m2m_parser.add_argument(
+        "--name",
+        required=True,
+        help="Service account name/client ID"
+    )
+    user_m2m_parser.add_argument(
+        "--groups",
+        required=True,
+        help="Comma-separated list of group names"
+    )
+    user_m2m_parser.add_argument(
+        "--description",
+        help="Account description"
+    )
+
+    # Create human user command
+    user_human_parser = subparsers.add_parser("user-create-human", help="Create human user account")
+    user_human_parser.add_argument(
+        "--username",
+        required=True,
+        help="Username"
+    )
+    user_human_parser.add_argument(
+        "--email",
+        required=True,
+        help="Email address"
+    )
+    user_human_parser.add_argument(
+        "--first-name",
+        required=True,
+        help="First name"
+    )
+    user_human_parser.add_argument(
+        "--last-name",
+        required=True,
+        help="Last name"
+    )
+    user_human_parser.add_argument(
+        "--groups",
+        required=True,
+        help="Comma-separated list of group names"
+    )
+    user_human_parser.add_argument(
+        "--password",
+        help="Initial password (optional)"
+    )
+
+    # Delete user command
+    user_delete_parser = subparsers.add_parser("user-delete", help="Delete a user")
+    user_delete_parser.add_argument(
+        "--username",
+        required=True,
+        help="Username to delete"
+    )
+    user_delete_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Skip confirmation prompt"
+    )
+
+    # List Keycloak IAM groups command
+    keycloak_groups_parser = subparsers.add_parser("keycloak-groups", help="List Keycloak IAM groups")
+
     args = parser.parse_args()
 
     # Enable debug logging if requested
@@ -1672,7 +1957,12 @@ Examples:
         "agent-rating": cmd_agent_rating,
         "anthropic-list": cmd_anthropic_list_servers,
         "anthropic-versions": cmd_anthropic_list_versions,
-        "anthropic-get": cmd_anthropic_get_server
+        "anthropic-get": cmd_anthropic_get_server,
+        "user-list": cmd_user_list,
+        "user-create-m2m": cmd_user_create_m2m,
+        "user-create-human": cmd_user_create_human,
+        "user-delete": cmd_user_delete,
+        "keycloak-groups": cmd_keycloak_groups,
     }
 
     handler = command_handlers.get(args.command)

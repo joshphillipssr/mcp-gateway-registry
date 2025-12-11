@@ -545,6 +545,62 @@ class AnthropicErrorResponse(BaseModel):
     error: str = Field(..., description="Error message")
 
 
+# Management API Models (IAM/User Management)
+
+
+class M2MAccountRequest(BaseModel):
+    """Request model for creating M2M service account."""
+
+    name: str = Field(..., min_length=1, description="Service account name/client ID")
+    groups: List[str] = Field(..., min_length=1, description="List of group names")
+    description: Optional[str] = Field(None, description="Account description")
+
+
+class HumanUserRequest(BaseModel):
+    """Request model for creating human user account."""
+
+    username: str = Field(..., min_length=1, description="Username")
+    email: str = Field(..., description="Email address")
+    first_name: str = Field(..., min_length=1, description="First name")
+    last_name: str = Field(..., min_length=1, description="Last name")
+    groups: List[str] = Field(..., min_length=1, description="List of group names")
+    password: Optional[str] = Field(None, description="Initial password")
+
+
+class KeycloakUserSummary(BaseModel):
+    """Keycloak user summary model."""
+
+    id: str = Field(..., description="User ID")
+    username: str = Field(..., description="Username")
+    email: Optional[str] = Field(None, description="Email address")
+    firstName: Optional[str] = Field(None, description="First name")
+    lastName: Optional[str] = Field(None, description="Last name")
+    enabled: bool = Field(True, description="Whether user is enabled")
+    groups: List[str] = Field(default_factory=list, description="User groups")
+
+
+class UserListResponse(BaseModel):
+    """Response model for list users endpoint."""
+
+    users: List[KeycloakUserSummary] = Field(default_factory=list, description="List of users")
+    total: int = Field(..., description="Total number of users")
+
+
+class UserDeleteResponse(BaseModel):
+    """Response model for delete user endpoint."""
+
+    username: str = Field(..., description="Deleted username")
+    deleted: bool = Field(True, description="Deletion status")
+
+
+class M2MAccountResponse(BaseModel):
+    """Response model for M2M account creation."""
+
+    client_id: str = Field(..., description="Client ID")
+    client_secret: str = Field(..., description="Client secret")
+    groups: List[str] = Field(default_factory=list, description="Assigned groups")
+
+
 class RegistryClient:
     """
     MCP Gateway Registry API client.
@@ -553,6 +609,7 @@ class RegistryClient:
     - Server Management: registration, removal, toggling, health checks
     - Group Management: create, delete, list groups
     - Agent Management: register, update, delete, discover agents (A2A)
+    - Management API: IAM/user management, M2M accounts, user CRUD operations
 
     Authentication is handled via JWT tokens passed to the constructor.
     """
@@ -1373,4 +1430,186 @@ class RegistryClient:
 
         result = AnthropicServerResponse(**response.json())
         logger.info(f"Retrieved server details for {server_name} v{version}")
+        return result
+
+
+    # Management API Methods (IAM/User Management)
+
+
+    def list_users(
+        self,
+        search: Optional[str] = None,
+        limit: int = 500
+    ) -> UserListResponse:
+        """
+        List Keycloak users (admin only).
+
+        Args:
+            search: Optional search string to filter users
+            limit: Maximum number of results (default: 500)
+
+        Returns:
+            UserListResponse with list of users
+
+        Raises:
+            requests.HTTPError: If not authorized (403) or request fails
+        """
+        logger.info("Listing Keycloak users")
+
+        params = {}
+        if search:
+            params["search"] = search
+        if limit != 500:
+            params["limit"] = limit
+
+        response = self._make_request(
+            method="GET",
+            endpoint="/management/iam/users",
+            params=params
+        )
+
+        result = UserListResponse(**response.json())
+        logger.info(f"Retrieved {result.total} users")
+        return result
+
+
+    def create_m2m_account(
+        self,
+        name: str,
+        groups: List[str],
+        description: Optional[str] = None
+    ) -> M2MAccountResponse:
+        """
+        Create a machine-to-machine service account.
+
+        Args:
+            name: Service account name/client ID
+            groups: List of group names for access control
+            description: Optional account description
+
+        Returns:
+            M2MAccountResponse with client credentials
+
+        Raises:
+            requests.HTTPError: If not authorized (403), already exists (400), or request fails
+        """
+        logger.info(f"Creating M2M service account: {name}")
+
+        data = {
+            "name": name,
+            "groups": groups
+        }
+        if description:
+            data["description"] = description
+
+        response = self._make_request(
+            method="POST",
+            endpoint="/management/iam/users/m2m",
+            data=data
+        )
+
+        result = M2MAccountResponse(**response.json())
+        logger.info(f"M2M account created successfully: {name}")
+        return result
+
+
+    def create_human_user(
+        self,
+        username: str,
+        email: str,
+        first_name: str,
+        last_name: str,
+        groups: List[str],
+        password: Optional[str] = None
+    ) -> KeycloakUserSummary:
+        """
+        Create a human user account in Keycloak.
+
+        Args:
+            username: Username
+            email: Email address
+            first_name: First name
+            last_name: Last name
+            groups: List of group names
+            password: Optional initial password
+
+        Returns:
+            KeycloakUserSummary with created user details
+
+        Raises:
+            requests.HTTPError: If not authorized (403), already exists (400), or request fails
+        """
+        logger.info(f"Creating human user: {username}")
+
+        data = {
+            "username": username,
+            "email": email,
+            "firstname": first_name,
+            "lastname": last_name,
+            "groups": groups
+        }
+        if password:
+            data["password"] = password
+
+        response = self._make_request(
+            method="POST",
+            endpoint="/management/iam/users/human",
+            data=data
+        )
+
+        result = KeycloakUserSummary(**response.json())
+        logger.info(f"User created successfully: {username}")
+        return result
+
+
+    def delete_user(
+        self,
+        username: str
+    ) -> UserDeleteResponse:
+        """
+        Delete a user by username.
+
+        Args:
+            username: Username to delete
+
+        Returns:
+            UserDeleteResponse confirming deletion
+
+        Raises:
+            requests.HTTPError: If not authorized (403), not found (400/404), or request fails
+        """
+        logger.info(f"Deleting user: {username}")
+
+        response = self._make_request(
+            method="DELETE",
+            endpoint=f"/management/iam/users/{username}"
+        )
+
+        result = UserDeleteResponse(**response.json())
+        logger.info(f"User deleted successfully: {username}")
+        return result
+
+
+    def list_keycloak_iam_groups(self) -> List[Dict[str, Any]]:
+        """
+        List Keycloak IAM groups (raw Keycloak data).
+
+        This is different from list_groups() which returns groups with server associations.
+        This method returns raw Keycloak group data without scopes.
+
+        Returns:
+            List of Keycloak group dictionaries
+
+        Raises:
+            requests.HTTPError: If not authorized (403) or request fails
+        """
+        logger.info("Listing Keycloak IAM groups")
+
+        response = self._make_request(
+            method="GET",
+            endpoint="/management/iam/groups"
+        )
+
+        result = response.json()
+        logger.info(f"Retrieved {len(result)} Keycloak groups")
         return result
