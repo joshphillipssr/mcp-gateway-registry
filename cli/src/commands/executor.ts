@@ -189,10 +189,10 @@ async function executeAgents(parsed: AgentsCommand, context: CommandExecutionCon
 
 async function executeAgentsList(context: CommandExecutionContext) {
   try {
-    const response = await fetch(`${context.gatewayUrl}/api/agents`, {
+    const response = await fetch(`${context.gatewayUrl}/agents`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${context.gatewayToken}`,
+        "X-Authorization": `Bearer ${context.backendToken}`,
         "Content-Type": "application/json"
       }
     });
@@ -233,10 +233,10 @@ async function executeAgentsList(context: CommandExecutionContext) {
 
 async function executeAgentsGet(agentPath: string, context: CommandExecutionContext) {
   try {
-    const response = await fetch(`${context.gatewayUrl}/api/agents${agentPath}`, {
+    const response = await fetch(`${context.gatewayUrl}/agents${agentPath}`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${context.gatewayToken}`,
+        "X-Authorization": `Bearer ${context.backendToken}`,
         "Content-Type": "application/json"
       }
     });
@@ -279,10 +279,10 @@ async function executeAgentsGet(agentPath: string, context: CommandExecutionCont
 
 async function executeAgentsSearch(query: string, context: CommandExecutionContext) {
   try {
-    const response = await fetch(`${context.gatewayUrl}/api/agents?search=${encodeURIComponent(query)}`, {
+    const response = await fetch(`${context.gatewayUrl}/agents?query=${encodeURIComponent(query)}`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${context.gatewayToken}`,
+        "X-Authorization": `Bearer ${context.backendToken}`,
         "Content-Type": "application/json"
       }
     });
@@ -319,10 +319,10 @@ async function executeAgentsSearch(query: string, context: CommandExecutionConte
 
 async function executeAgentsTest(agentPath: string, context: CommandExecutionContext) {
   try {
-    const response = await fetch(`${context.gatewayUrl}/api/agents${agentPath}`, {
+    const response = await fetch(`${context.gatewayUrl}/agents${agentPath}`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${context.gatewayToken}`,
+        "X-Authorization": `Bearer ${context.backendToken}`,
         "Content-Type": "application/json"
       }
     });
@@ -351,10 +351,10 @@ async function executeAgentsTest(agentPath: string, context: CommandExecutionCon
 
 async function executeAgentsTestAll(context: CommandExecutionContext) {
   try {
-    const response = await fetch(`${context.gatewayUrl}/api/agents`, {
+    const response = await fetch(`${context.gatewayUrl}/agents`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${context.gatewayToken}`,
+        "X-Authorization": `Bearer ${context.backendToken}`,
         "Content-Type": "application/json"
       }
     });
