@@ -390,11 +390,11 @@ def _scan_all_servers(
         logger.error(f"Failed to create registry client: {e}")
         sys.exit(1)
 
-    # Get server list using the client
+    # Get server list using the Anthropic Registry API (v0.1)
     try:
-        servers_response = client.list_servers()
+        servers_response = client.anthropic_list_servers(limit=1000)
         servers = servers_response.servers if hasattr(servers_response, 'servers') else []
-        logger.info(f"Retrieved {len(servers)} servers from registry")
+        logger.info(f"Retrieved {len(servers)} servers from registry using Anthropic API v0.1")
     except Exception as e:
         logger.error(f"Failed to get server list: {e}")
         sys.exit(1)
