@@ -520,11 +520,11 @@ class ServerService:
         # Compute average rating
         all_ratings = [entry["rating"] for entry in server_info["rating_details"]]
         server_info["num_stars"] = float(sum(all_ratings) / len(all_ratings))
-        
+
         # Save to file
         self.save_server_to_file(server_info)
-        
-        logger.info(f"Updated rating for server {path}: user {username} rated {rating}, new average: {avg_rating}")
+
+        logger.info(f"Updated rating for server {path}: user {username} rated {rating}, new average: {server_info['num_stars']}")
         return server_info["num_stars"]
 
     def remove_server(self, path: str) -> bool:
