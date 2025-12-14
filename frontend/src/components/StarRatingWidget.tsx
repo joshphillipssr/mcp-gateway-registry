@@ -98,17 +98,25 @@ const StarRatingWidget: React.FC<StarRatingWidgetProps> = ({
 
 
   const handleSubmitRating = async () => {
-    if (!selectedRating || !authToken) return;
+    console.log('handleSubmitRating called', { selectedRating, authToken: !!authToken });
+    if (!selectedRating || !authToken) {
+      console.log('Validation failed - no rating or token');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const headers = { Authorization: `Bearer ${authToken}` };
+      const url = `/api/${resourceType}/rate?path=${encodeURIComponent(path)}`;
+      console.log('Submitting rating to:', url, { rating: selectedRating });
+
       const response = await axios.post(
-        `/api/${resourceType}/rate?path=${encodeURIComponent(path)}`,
+        url,
         { rating: selectedRating },
         { headers }
       );
 
+      console.log('Rating response:', response.data);
       const newAverageRating = response.data.average_rating;
       setAverageRating(newAverageRating);
       setCurrentUserRating(selectedRating);
@@ -132,12 +140,15 @@ const StarRatingWidget: React.FC<StarRatingWidgetProps> = ({
       }
 
       // Auto-close after 2 seconds
+      console.log('Setting timeout to close dialog...');
       setTimeout(() => {
+        console.log('Closing dialog now');
         setShowSuccess(false);
         setIsDropdownOpen(false);
       }, 2000);
     } catch (error: any) {
       console.error('Failed to submit rating:', error);
+      console.error('Error details:', error.response?.data);
       if (onShowToast) {
         onShowToast(
           error.response?.data?.detail || 'Failed to submit rating',
