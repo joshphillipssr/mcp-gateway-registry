@@ -42,6 +42,9 @@ from registry.services.federation_service import get_federation_service
 # Import core configuration
 from registry.core.config import settings
 
+# Import version
+from registry.version import __version__
+
 # Configure logging with file and console handlers
 def setup_logging():
     """Configure logging to write to both file and console."""
@@ -186,7 +189,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MCP Gateway Registry",
     description="A registry and management system for Model Context Protocol (MCP) servers",
-    version="1.0.0",
+    version=__version__,
     lifespan=lifespan,
     swagger_ui_parameters={
         "persistAuthorization": True,
