@@ -19,8 +19,11 @@ async function callRegistryWrapper(args: string[], context: CommandExecutionCont
     ...args
   ];
 
-  const env = context.backendToken
-    ? {...process.env, GATEWAY_TOKEN: context.backendToken}
+  // Use backendToken if available, otherwise fall back to gatewayToken
+  const token = context.backendToken || context.gatewayToken;
+
+  const env = token
+    ? {...process.env, GATEWAY_TOKEN: token}
     : process.env;
 
   return new Promise((resolve) => {
@@ -274,26 +277,23 @@ async function executeAgentsSearch(query: string, context: CommandExecutionConte
 }
 
 async function executeAgentsTest(agentPath: string, context: CommandExecutionContext) {
+  const result = await callRegistryWrapper(["agent", "get", agentPath], context);
+
+  if (result.exitCode !== 0) {
+    return {
+      lines: [`Error testing agent:`, result.stderr || result.stdout],
+      isError: true
+    };
+  }
+
   try {
-    const response = await fetch(`${context.gatewayUrl}/agents${agentPath}`, {
-      method: "GET",
-      headers: {
-        "X-Authorization": `Bearer ${context.backendToken}`,
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (!response.ok) {
-      return {lines: [`Error: ${response.status} - Agent not found or access denied`], isError: true};
-    }
-
-    const agent = await response.json() as any;
+    const agent = JSON.parse(result.stdout);
     const lines: string[] = [];
 
     lines.push(`Testing agent: ${agent.name || agentPath}`);
     lines.push(`✓ Agent registered`);
     lines.push(`✓ Endpoint accessible`);
-    if (agent.enabled) {
+    if (agent.is_enabled) {
       lines.push(`✓ Agent enabled`);
     } else {
       lines.push(`⚠ Agent is disabled`);
@@ -301,28 +301,25 @@ async function executeAgentsTest(agentPath: string, context: CommandExecutionCon
 
     return {lines};
   } catch (error) {
-    return {lines: [`Error testing agent: ${(error as Error).message}`], isError: true};
+    return {lines: [`Error parsing agent data: ${(error as Error).message}`], isError: true};
   }
 }
 
 async function executeAgentsTestAll(context: CommandExecutionContext) {
+  const result = await callRegistryWrapper(["agent", "list"], context);
+
+  if (result.exitCode !== 0) {
+    return {
+      lines: [`Error testing agents:`, result.stderr || result.stdout],
+      isError: true
+    };
+  }
+
   try {
-    const response = await fetch(`${context.gatewayUrl}/agents`, {
-      method: "GET",
-      headers: {
-        "X-Authorization": `Bearer ${context.backendToken}`,
-        "Content-Type": "application/json"
-      }
-    });
+    const data = JSON.parse(result.stdout);
+    const agents = Array.isArray(data.agents) ? data.agents : [];
 
-    if (!response.ok) {
-      return {lines: [`Error: ${response.status} - Failed to list agents`], isError: true};
-    }
-
-    const data = await response.json() as any;
-    const agents = Array.isArray(data.agents) ? data.agents : (data.agents && typeof data.agents === "object" ? Object.values(data.agents) : []);
-
-    if (!Array.isArray(agents) || agents.length === 0) {
+    if (agents.length === 0) {
       return {lines: ["No agents to test."]};
     }
 
@@ -331,7 +328,7 @@ async function executeAgentsTestAll(context: CommandExecutionContext) {
     let unhealthy = 0;
 
     agents.forEach((agent: any) => {
-      if (agent.enabled) {
+      if (agent.is_enabled) {
         lines.push(`✓ ${agent.name || agent.path} - operational`);
         healthy++;
       } else {
@@ -348,7 +345,7 @@ async function executeAgentsTestAll(context: CommandExecutionContext) {
 
     return {lines};
   } catch (error) {
-    return {lines: [`Error testing agents: ${(error as Error).message}`], isError: true};
+    return {lines: [`Error parsing agent data: ${(error as Error).message}`], isError: true};
   }
 }
 
