@@ -527,4 +527,4 @@ if __name__ == "__main__":
     sys.exit(deploy_server("production-server.json"))
 ```
 
-For advanced operations and direct API usage, see the API documentation in `api/README.md`.
+For advanced operations and direct API usage, see the [API documentation](../api/README.md).
