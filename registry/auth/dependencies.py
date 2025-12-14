@@ -506,7 +506,7 @@ def enhanced_auth(
 
 def nginx_proxied_auth(
     request: Request,
-    session: Annotated[str | None, Cookie(alias=settings.session_cookie_name)] = None,
+    session: Annotated[str | None, Cookie(alias=settings.session_cookie_name, include_in_schema=False)] = None,
     x_user: Annotated[str | None, Header(alias="X-User", include_in_schema=False)] = None,
     x_username: Annotated[str | None, Header(alias="X-Username", include_in_schema=False)] = None,
     x_scopes: Annotated[str | None, Header(alias="X-Scopes", include_in_schema=False)] = None,
