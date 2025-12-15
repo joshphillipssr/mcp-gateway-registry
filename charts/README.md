@@ -15,8 +15,10 @@ For deploying on Amazon EKS, we recommend using the [AWS AI/ML on Amazon EKS](ht
 git clone https://github.com/awslabs/ai-on-eks.git
 cd ai-on-eks
 
-# Follow the blueprint documentation to create an EKS cluster
-# https://github.com/awslabs/ai-on-eks/tree/main/blueprints
+# Until https://github.com/awslabs/ai-on-eks/pull/232 is merged, the custom stack can be used
+
+cd infra/custom
+./install.sh
 ```
 
 Once your EKS cluster is provisioned, return to this directory to deploy the MCP Gateway Registry using the Helm charts.
