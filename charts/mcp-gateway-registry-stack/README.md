@@ -1,13 +1,39 @@
 # MCP Gateway Registry Stack Charts
 
-This collection of charts deploys everything needed to install the MCP Gateway Registry using helm or ArgoCD
+This collection of charts deploys everything needed to install the MCP Gateway Registry using Helm or ArgoCD.
 
 ## Prerequisites
 
-- `helm` installed
-- Kubernetes cluster
-- Ingress Controller / ExternalDNS
-- Domain and Certificate
+### Kubernetes Cluster
+
+**Option 1: Amazon EKS (Recommended for AWS deployments)**
+
+For production EKS deployments, we recommend using the [AWS AI/ML on Amazon EKS](https://github.com/awslabs/ai-on-eks) blueprints:
+
+```bash
+# Clone AI on EKS repository
+git clone https://github.com/awslabs/ai-on-eks.git
+cd ai-on-eks
+
+# Choose a blueprint and follow the setup instructions
+# For example: blueprints/ai-ml-inference
+# https://github.com/awslabs/ai-on-eks/tree/main/blueprints
+```
+
+**Option 2: Other Kubernetes Platforms**
+- Google GKE
+- Azure AKS
+- Self-managed Kubernetes clusters
+- Local development (minikube, kind, k3s)
+
+### Additional Requirements
+
+- `helm` CLI installed (v3.0+)
+- `kubectl` configured to access your cluster
+- Ingress Controller (AWS ALB Controller for EKS, or NGINX/Traefik for other platforms)
+- ExternalDNS (optional, for automatic DNS management)
+- Domain name with DNS access
+- TLS certificates (Let's Encrypt, AWS ACM, or self-signed)
 
 ## Setup
 
