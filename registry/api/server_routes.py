@@ -2830,8 +2830,8 @@ async def get_server_rating(
             )
 
     return {
-        "num_stars": server_info.num_stars,
-        "rating_details": server_info.rating_details,
+        "num_stars": server_info.get("num_stars", 0.0),
+        "rating_details": server_info.get("rating_details", []),
     }
 
 
