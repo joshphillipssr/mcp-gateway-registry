@@ -13,9 +13,10 @@ For production deployments, we recommend using the [AWS AI/ML on Amazon EKS](htt
 git clone https://github.com/awslabs/ai-on-eks.git
 cd ai-on-eks
 
-# Choose a blueprint and follow the setup instructions
-# For example: blueprints/ai-ml-inference
-# https://github.com/awslabs/ai-on-eks/tree/main/blueprints
+# Until https://github.com/awslabs/ai-on-eks/pull/232 is merged, the custom stack can be used
+
+cd infra/custom
+./install.sh
 ```
 
 The ai-on-eks blueprints provide:
