@@ -197,6 +197,7 @@ cookies.txt
 
 # Kiro files
 .kiro
+.kiro/
 
 # OAuth tokens and credentials - never commit these!
 .oauth-tokens/
