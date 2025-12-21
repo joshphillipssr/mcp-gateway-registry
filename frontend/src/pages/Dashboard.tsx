@@ -100,7 +100,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ activeFilter = 'all' }) => {
-  const { servers, agents: agentsFromStats, loading, error, refreshData, setServers, setAgents } = useServerStats();
+  const { servers, loading, error, refreshData, setServers } = useServerStats();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [committedQuery, setCommittedQuery] = useState('');
@@ -353,45 +353,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeFilter = 'all' }) => {
 
     return filtered;
   }, [internalAgents, activeFilter, searchTerm]);
-
-  // Generate JWT token for agent operations once when user logs in and agentsFromStats are available
-  useEffect(() => {
-    const generateAgentToken = async () => {
-      if (!user || agentsFromStats.length === 0 || agentApiToken) return;
-
-      try {
-        setAgentsLoading(true);
-        setAgentsError(null);
-
-        const tokenResponse = await axios.post('/api/tokens/generate', {
-          description: 'Dashboard agent operations',
-          expires_in_hours: 1
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!tokenResponse.data.success) {
-          throw new Error('Failed to generate JWT token');
-        }
-
-        const jwtToken = tokenResponse.data.token_data.access_token;
-        setAgentApiToken(jwtToken);
-
-        // Run initial health checks on agents
-        runInitialAgentHealthChecks(agents, jwtToken);
-      } catch (err: any) {
-        console.error('Failed to generate agent token:', err);
-        setAgentsError(err.response?.data?.detail || 'Failed to generate agent token');
-        setAgentApiToken(null);
-      } finally {
-        setAgentsLoading(false);
-      }
-    };
-
-    generateAgentToken();
-  }, [user, agentsFromStats.length, agentApiToken]); // Only depend on length, not the full array
 
   // Debug logging for filtering
   console.log('Dashboard filtering debug:');

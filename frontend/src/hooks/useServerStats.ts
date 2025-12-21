@@ -148,12 +148,9 @@ export const useServerStats = (): UseServerStatsReturn => {
         return transformed;
       });
       
-      // Store servers and agents separately
-      setServers(transformedServers);
-      setAgents(transformedAgents);
-
-      // Combine for stats calculation
+      // Combine servers and agents
       const allServices = [...transformedServers, ...transformedAgents];
+      setServers(allServices);
       
       // Calculate stats from combined list
       let total = 0;
