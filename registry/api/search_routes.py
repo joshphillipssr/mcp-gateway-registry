@@ -83,7 +83,7 @@ class SemanticSearchResponse(BaseModel):
     total_agents: int = 0
 
 
-def _user_can_access_server(path: str, server_name: str, user_context: dict) -> bool:
+async def _user_can_access_server(path: str, server_name: str, user_context: dict) -> bool:
     """Validate whether the current user can view the specified server."""
     if user_context.get("is_admin"):
         return True
@@ -175,7 +175,7 @@ async def semantic_search(
 
     filtered_servers: List[ServerSearchResult] = []
     for server in raw_results.get("servers", []):
-        if not _user_can_access_server(
+        if not await _user_can_access_server(
             server.get("path", ""),
             server.get("server_name", ""),
             user_context,
@@ -210,7 +210,7 @@ async def semantic_search(
     for tool in raw_results.get("tools", []):
         server_path = tool.get("server_path", "")
         server_name = tool.get("server_name", "")
-        if not _user_can_access_server(server_path, server_name, user_context):
+        if not await _user_can_access_server(server_path, server_name, user_context):
             continue
 
         filtered_tools.append(
