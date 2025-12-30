@@ -139,7 +139,7 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                 # Find existing document by path field for AOSS
                 search_response = await client.search(
                     index=self._index_name,
-                    body={"query": {"term": {"path.keyword": path}}}
+                    body={"query": {"term": {"path": path}}}
                 )
 
                 if search_response['hits']['total']['value'] == 0:
@@ -189,7 +189,7 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                 # Find existing document by path field for AOSS
                 search_response = await client.search(
                     index=self._index_name,
-                    body={"query": {"term": {"path.keyword": path}}}
+                    body={"query": {"term": {"path": path}}}
                 )
 
                 if search_response['hits']['total']['value'] == 0:
@@ -242,7 +242,7 @@ class OpenSearchServerRepository(ServerRepositoryBase):
             if self._is_aoss():
                 search_response = await client.search(
                     index=self._index_name,
-                    body={"query": {"match": {"path": path}}}
+                    body={"query": {"term": {"path": path}}}
                 )
 
                 if search_response['hits']['total']['value'] == 0:

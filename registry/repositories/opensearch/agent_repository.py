@@ -175,7 +175,7 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                 # Find existing document by path field for AOSS
                 search_response = await client.search(
                     index=self._index_name,
-                    body={"query": {"term": {"path.keyword": path}}}
+                    body={"query": {"term": {"path": path}}}
                 )
 
                 if search_response['hits']['total']['value'] == 0:
@@ -221,7 +221,7 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                 # Find existing document by path field for AOSS
                 search_response = await client.search(
                     index=self._index_name,
-                    body={"query": {"term": {"path.keyword": path}}}
+                    body={"query": {"term": {"path": path}}}
                 )
 
                 if search_response['hits']['total']['value'] == 0:
@@ -295,7 +295,7 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                 # Find existing document by path field for AOSS
                 search_response = await client.search(
                     index=self._index_name,
-                    body={"query": {"term": {"path.keyword": path}}}
+                    body={"query": {"term": {"path": path}}}
                 )
 
                 if search_response['hits']['total']['value'] == 0:
