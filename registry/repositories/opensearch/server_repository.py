@@ -1,5 +1,6 @@
 """OpenSearch-based repository for MCP server storage."""
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -36,6 +37,49 @@ class OpenSearchServerRepository(ServerRepositoryBase):
     def _path_to_doc_id(self, path: str) -> str:
         """Convert path to document ID."""
         return path.replace("/", "_").strip("_")
+
+
+    async def _wait_for_document_available(
+        self,
+        path: str,
+        max_retries: int = 5,
+        initial_delay: float = 0.5
+    ) -> bool:
+        """Wait for AOSS eventual consistency - retry until document is queryable.
+
+        Args:
+            path: Server path to check
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds (doubles each retry)
+
+        Returns:
+            True if document becomes available, False if max retries exceeded
+        """
+        client = await self._get_client()
+        delay = initial_delay
+
+        for attempt in range(max_retries):
+            try:
+                search_response = await client.search(
+                    index=self._index_name,
+                    body={"query": {"term": {"path": path}}}
+                )
+
+                if search_response['hits']['total']['value'] > 0:
+                    logger.info(f"Document for '{path}' available after {attempt + 1} attempts")
+                    return True
+
+                logger.debug(f"Document for '{path}' not yet available, retry {attempt + 1}/{max_retries}")
+                await asyncio.sleep(delay)
+                delay *= 2  # Exponential backoff
+
+            except Exception as e:
+                logger.warning(f"Error checking document availability for '{path}': {e}")
+                await asyncio.sleep(delay)
+                delay *= 2
+
+        logger.error(f"Document for '{path}' not available after {max_retries} retries")
+        return False
 
     async def load_all(self) -> None:
         """Load all servers from OpenSearch."""
@@ -106,6 +150,16 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     index=self._index_name,
                     body=server_info
                 )
+
+                # Wait for AOSS eventual consistency - document must be queryable before proceeding
+                logger.info(f"Waiting for AOSS to index document for '{path}'...")
+                if not await self._wait_for_document_available(path):
+                    logger.error(f"Document for '{path}' not available after retries")
+                    return False
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
+
             else:
                 # Regular OpenSearch - use custom ID for backwards compatibility
                 await client.index(
@@ -114,8 +168,9 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     body=server_info,
                     refresh=True
                 )
+                # Update local cache immediately for regular OpenSearch
+                self._servers[path] = server_info
 
-            self._servers[path] = server_info
             logger.info(f"Created server '{server_info['server_name']}' at '{path}'")
             return True
 
@@ -160,6 +215,9 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     id=doc_id,
                     body={"doc": server_info}
                 )
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
             else:
                 await client.update(
                     index=self._index_name,
@@ -167,8 +225,9 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     body={"doc": server_info},
                     refresh=True
                 )
+                # Update local cache immediately for regular OpenSearch
+                self._servers[path] = server_info
 
-            self._servers[path] = server_info
             logger.info(f"Updated server '{server_info['server_name']}' ({path})")
             return True
 
@@ -203,12 +262,17 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                 doc_id = self._path_to_doc_id(path)
 
             # Delete using the document ID
+            server_name = self._servers[path].get('server_name', 'Unknown')
+
             if self._is_aoss():
                 # AOSS doesn't support refresh=true
                 await client.delete(
                     index=self._index_name,
                     id=doc_id
                 )
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
             else:
                 await client.delete(
                     index=self._index_name,
@@ -216,8 +280,8 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     refresh=True
                 )
 
-            server_name = self._servers[path].get('server_name', 'Unknown')
-            del self._servers[path]
+                # Update local cache immediately for regular OpenSearch
+                del self._servers[path]
 
             logger.info(f"Deleted server '{server_name}' from '{path}'")
             return True
@@ -271,6 +335,9 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     id=doc_id,
                     body=update_body
                 )
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
             else:
                 await client.update(
                     index=self._index_name,
@@ -279,9 +346,9 @@ class OpenSearchServerRepository(ServerRepositoryBase):
                     refresh=True
                 )
 
-            # Update in-memory cache
-            if path in self._servers:
-                self._servers[path]["is_enabled"] = enabled
+                # Update in-memory cache immediately for regular OpenSearch
+                if path in self._servers:
+                    self._servers[path]["is_enabled"] = enabled
 
             logger.info(f"Toggled '{server_name}' ({path}) to {enabled}")
             return True

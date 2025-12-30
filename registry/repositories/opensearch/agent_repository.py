@@ -1,5 +1,6 @@
 """OpenSearch-based repository for A2A agent storage."""
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -38,6 +39,49 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
     def _path_to_doc_id(self, path: str) -> str:
         """Convert path to document ID."""
         return path.replace("/", "_").strip("_")
+
+
+    async def _wait_for_document_available(
+        self,
+        path: str,
+        max_retries: int = 5,
+        initial_delay: float = 0.5
+    ) -> bool:
+        """Wait for AOSS eventual consistency - retry until document is queryable.
+
+        Args:
+            path: Agent path to check
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds (doubles each retry)
+
+        Returns:
+            True if document becomes available, False if max retries exceeded
+        """
+        client = await self._get_client()
+        delay = initial_delay
+
+        for attempt in range(max_retries):
+            try:
+                search_response = await client.search(
+                    index=self._index_name,
+                    body={"query": {"term": {"path": path}}}
+                )
+
+                if search_response['hits']['total']['value'] > 0:
+                    logger.info(f"Document for '{path}' available after {attempt + 1} attempts")
+                    return True
+
+                logger.debug(f"Document for '{path}' not yet available, retry {attempt + 1}/{max_retries}")
+                await asyncio.sleep(delay)
+                delay *= 2  # Exponential backoff
+
+            except Exception as e:
+                logger.warning(f"Error checking document availability for '{path}': {e}")
+                await asyncio.sleep(delay)
+                delay *= 2
+
+        logger.error(f"Document for '{path}' not available after {max_retries} retries")
+        return False
 
     async def load_all(self) -> None:
         """Load all agents from OpenSearch."""
@@ -129,6 +173,16 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     index=self._index_name,
                     body=agent_dict
                 )
+
+                # Wait for AOSS eventual consistency - document must be queryable before proceeding
+                logger.info(f"Waiting for AOSS to index document for '{path}'...")
+                if not await self._wait_for_document_available(path):
+                    logger.error(f"Document for '{path}' not available after retries")
+                    raise ValueError(f"Failed to verify agent creation in OpenSearch")
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
+
             else:
                 # Regular OpenSearch - use custom ID for backwards compatibility
                 await client.index(
@@ -138,8 +192,10 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     refresh=True
                 )
 
-            self._agents[path] = agent
-            self._state["disabled"].append(path)
+                # Update local cache immediately for regular OpenSearch
+                self._agents[path] = agent
+                self._state["disabled"].append(path)
+
             logger.info(f"Created agent '{agent.name}' at '{path}'")
             return agent
 
@@ -190,6 +246,9 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     id=doc_id,
                     body={"doc": agent_dict}
                 )
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
             else:
                 # Regular OpenSearch - use deterministic ID
                 doc_id = self._path_to_doc_id(path)
@@ -200,7 +259,9 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     refresh=True
                 )
 
-            self._agents[path] = updated_agent
+                # Update local cache immediately for regular OpenSearch
+                self._agents[path] = updated_agent
+
             logger.info(f"Updated agent '{updated_agent.name}' ({path})")
             return updated_agent
 
@@ -235,12 +296,17 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                 doc_id = self._path_to_doc_id(path)
 
             # Delete using the document ID
+            agent_name = self._agents[path].name
+
             if self._is_aoss():
                 # AOSS doesn't support refresh=true
                 await client.delete(
                     index=self._index_name,
                     id=doc_id
                 )
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
             else:
                 await client.delete(
                     index=self._index_name,
@@ -248,14 +314,14 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     refresh=True
                 )
 
-            agent_name = self._agents[path].name
-            del self._agents[path]
+                # Update local cache immediately for regular OpenSearch
+                del self._agents[path]
 
-            # Remove from state
-            if path in self._state["enabled"]:
-                self._state["enabled"].remove(path)
-            if path in self._state["disabled"]:
-                self._state["disabled"].remove(path)
+                # Remove from state
+                if path in self._state["enabled"]:
+                    self._state["enabled"].remove(path)
+                if path in self._state["disabled"]:
+                    self._state["disabled"].remove(path)
 
             logger.info(f"Deleted agent '{agent_name}' from '{path}'")
             return True
@@ -316,6 +382,9 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     id=doc_id,
                     body={"doc": {"is_enabled": enabled, "updated_at": datetime.utcnow().isoformat()}}
                 )
+
+                # Reload cache to sync with OpenSearch after write
+                await self.load_all()
             else:
                 await client.update(
                     index=self._index_name,
@@ -324,17 +393,17 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     refresh=True
                 )
 
-            # Update state lists
-            if enabled:
-                if path in self._state["disabled"]:
-                    self._state["disabled"].remove(path)
-                if path not in self._state["enabled"]:
-                    self._state["enabled"].append(path)
-            else:
-                if path in self._state["enabled"]:
-                    self._state["enabled"].remove(path)
-                if path not in self._state["disabled"]:
-                    self._state["disabled"].append(path)
+                # Update state lists immediately for regular OpenSearch
+                if enabled:
+                    if path in self._state["disabled"]:
+                        self._state["disabled"].remove(path)
+                    if path not in self._state["enabled"]:
+                        self._state["enabled"].append(path)
+                else:
+                    if path in self._state["enabled"]:
+                        self._state["enabled"].remove(path)
+                    if path not in self._state["disabled"]:
+                        self._state["disabled"].append(path)
 
             agent_name = self._agents[path].name
             logger.info(f"Toggled '{agent_name}' ({path}) to {enabled}")
