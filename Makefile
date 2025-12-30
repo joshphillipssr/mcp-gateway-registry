@@ -250,7 +250,7 @@ push:
 	@$(if $(IMAGE),IMAGE=$(IMAGE),) ./scripts/build-images.sh push
 
 build-push:
-	@$(if $(IMAGE),IMAGE=$(IMAGE),) ./scripts/build-images.sh build-push
+	@$(if $(NO_CACHE),NO_CACHE=$(NO_CACHE),) $(if $(IMAGE),IMAGE=$(IMAGE),) ./scripts/build-images.sh build-push
 
 # ========================================
 # DockerHub Publishing
