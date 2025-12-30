@@ -36,7 +36,7 @@ def get_server_repository() -> ServerRepositoryBase:
     backend = settings.storage_backend
     logger.info(f"Creating server repository with backend: {backend}")
 
-    if backend == "opensearch":
+    if backend in ("opensearch", "opensearch_serverless"):
         from .opensearch.server_repository import OpenSearchServerRepository
         _server_repo = OpenSearchServerRepository()
     else:
@@ -56,7 +56,7 @@ def get_agent_repository() -> AgentRepositoryBase:
     backend = settings.storage_backend
     logger.info(f"Creating agent repository with backend: {backend}")
 
-    if backend == "opensearch":
+    if backend in ("opensearch", "opensearch_serverless"):
         from .opensearch.agent_repository import OpenSearchAgentRepository
         _agent_repo = OpenSearchAgentRepository()
     else:
@@ -76,7 +76,7 @@ def get_scope_repository() -> ScopeRepositoryBase:
     backend = settings.storage_backend
     logger.info(f"Creating scope repository with backend: {backend}")
 
-    if backend == "opensearch":
+    if backend in ("opensearch", "opensearch_serverless"):
         from .opensearch.scope_repository import OpenSearchScopeRepository
         _scope_repo = OpenSearchScopeRepository()
     else:
@@ -96,7 +96,7 @@ def get_security_scan_repository() -> SecurityScanRepositoryBase:
     backend = settings.storage_backend
     logger.info(f"Creating security scan repository with backend: {backend}")
 
-    if backend == "opensearch":
+    if backend in ("opensearch", "opensearch_serverless"):
         from .opensearch.security_scan_repository import OpenSearchSecurityScanRepository
         _security_scan_repo = OpenSearchSecurityScanRepository()
     else:
@@ -116,7 +116,7 @@ def get_search_repository() -> SearchRepositoryBase:
     backend = settings.storage_backend
     logger.info(f"Creating search repository with backend: {backend}")
 
-    if backend == "opensearch":
+    if backend in ("opensearch", "opensearch_serverless"):
         from .opensearch.search_repository import OpenSearchSearchRepository
         _search_repo = OpenSearchSearchRepository()
     else:
@@ -136,7 +136,7 @@ def get_federation_config_repository() -> FederationConfigRepositoryBase:
     backend = settings.storage_backend
     logger.info(f"Creating federation config repository with backend: {backend}")
 
-    if backend == "opensearch":
+    if backend in ("opensearch", "opensearch_serverless"):
         from .opensearch.federation_config_repository import OpenSearchFederationConfigRepository
         _federation_config_repo = OpenSearchFederationConfigRepository()
     else:
