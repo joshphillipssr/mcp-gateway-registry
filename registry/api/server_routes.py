@@ -1769,11 +1769,11 @@ async def refresh_service(
 
         for path in await server_service.get_enabled_services():
 
-            server_info = await server_service.get_server_info(path)
+            path_server_info = await server_service.get_server_info(path)
 
-            if server_info:
+            if path_server_info:
 
-                enabled_servers[path] = server_info
+                enabled_servers[path] = path_server_info
         await nginx_service.generate_config_async(enabled_servers)
 
     except Exception as e:
