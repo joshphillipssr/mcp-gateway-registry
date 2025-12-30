@@ -288,12 +288,11 @@ build_image() {
     fi
 
     # Build the Docker image using buildx (faster, better caching, future-proof)
-    # Tag with both BUILD_VERSION (commit-based) and latest
+    # Tag with :latest only (ECS will pull fresh images with imagePullPolicy: always)
     docker buildx build \
         --load \
         -f "$REPO_ROOT/$dockerfile" \
         -t "$repo_name:latest" \
-        -t "$repo_name:$BUILD_VERSION" \
         $cache_flags \
         $build_arg_flags \
         "$REPO_ROOT/$context" || {
@@ -302,7 +301,7 @@ build_image() {
         return 1
     }
 
-    log_success "Built $repo_name:latest and $repo_name:$BUILD_VERSION"
+    log_success "Built $repo_name:latest"
 
     # Cleanup A2A agent dependencies after build
     cleanup_a2a_agent "$image_name" "$context"
@@ -316,7 +315,6 @@ push_image() {
     local repo_name="$2"
 
     local ecr_uri_latest="${ECR_REGISTRY}/${repo_name}:latest"
-    local ecr_uri_versioned="${ECR_REGISTRY}/${repo_name}:$BUILD_VERSION"
 
     log_info "Pushing $image_name to ECR..."
 
@@ -340,32 +338,20 @@ push_image() {
         return 1
     }
 
-    # Tag images for ECR (both latest and versioned)
+    # Tag image for ECR (:latest only)
     docker tag "$repo_name:latest" "$ecr_uri_latest" || {
-        log_error "Failed to tag image for ECR (latest)"
+        log_error "Failed to tag image for ECR"
         return 1
     }
 
-    docker tag "$repo_name:$BUILD_VERSION" "$ecr_uri_versioned" || {
-        log_error "Failed to tag image for ECR (versioned)"
-        return 1
-    }
-
-    # Push both tags to ECR
+    # Push to ECR
     log_info "Pushing $ecr_uri_latest..."
     docker push "$ecr_uri_latest" || {
-        log_error "Failed to push image to ECR (latest)"
-        return 1
-    }
-
-    log_info "Pushing $ecr_uri_versioned..."
-    docker push "$ecr_uri_versioned" || {
-        log_error "Failed to push image to ECR (versioned)"
+        log_error "Failed to push image to ECR"
         return 1
     }
 
     log_success "Pushed $ecr_uri_latest"
-    log_success "Pushed $ecr_uri_versioned"
 }
 
 # Process images
