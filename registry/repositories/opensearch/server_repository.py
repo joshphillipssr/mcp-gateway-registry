@@ -235,23 +235,54 @@ class OpenSearchServerRepository(ServerRepositoryBase):
 
     async def set_state(self, path: str, enabled: bool) -> bool:
         """Set server enabled/disabled state."""
-        if path not in self._servers:
-            logger.error(f"Cannot toggle service at '{path}': not found")
-            return False
-
         client = await self._get_client()
-        doc_id = self._path_to_doc_id(path)
 
         try:
-            await client.update(
-                index=self._index_name,
-                id=doc_id,
-                body={"doc": {"is_enabled": enabled, "updated_at": datetime.utcnow().isoformat()}},
-                refresh=True
-            )
+            # Find document ID (AOSS uses auto-generated IDs)
+            if self._is_aoss():
+                search_response = await client.search(
+                    index=self._index_name,
+                    body={"query": {"term": {"path.keyword": path}}}
+                )
 
-            self._servers[path]["is_enabled"] = enabled
-            server_name = self._servers[path]["server_name"]
+                if search_response['hits']['total']['value'] == 0:
+                    logger.error(f"Server at '{path}' not found in OpenSearch")
+                    return False
+
+                # Get the auto-generated document ID and server data
+                doc_id = search_response['hits']['hits'][0]['_id']
+                server_data = search_response['hits']['hits'][0]['_source']
+                server_name = server_data.get('server_name', path)
+            else:
+                # Regular OpenSearch - use deterministic ID
+                if path not in self._servers:
+                    logger.error(f"Cannot toggle service at '{path}': not found")
+                    return False
+                doc_id = self._path_to_doc_id(path)
+                server_name = self._servers[path]["server_name"]
+
+            # Update state in OpenSearch
+            update_body = {"doc": {"is_enabled": enabled, "updated_at": datetime.utcnow().isoformat()}}
+
+            if self._is_aoss():
+                # AOSS doesn't support refresh=true
+                await client.update(
+                    index=self._index_name,
+                    id=doc_id,
+                    body=update_body
+                )
+            else:
+                await client.update(
+                    index=self._index_name,
+                    id=doc_id,
+                    body=update_body,
+                    refresh=True
+                )
+
+            # Update in-memory cache
+            if path in self._servers:
+                self._servers[path]["is_enabled"] = enabled
+
             logger.info(f"Toggled '{server_name}' ({path}) to {enabled}")
             return True
 
