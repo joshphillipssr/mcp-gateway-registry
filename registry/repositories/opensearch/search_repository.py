@@ -167,7 +167,7 @@ class OpenSearchSearchRepository(SearchRepositoryBase):
                     await client.index(
                         index=self._index_name,
                         body=doc,
-                        op_type='create'
+                        # op_type not supported in AOSS
                     )
             else:
                 await client.index(
@@ -245,7 +245,7 @@ class OpenSearchSearchRepository(SearchRepositoryBase):
                     await client.index(
                         index=self._index_name,
                         body=doc,
-                        op_type='create'
+                        # op_type not supported in AOSS
                     )
             else:
                 await client.index(

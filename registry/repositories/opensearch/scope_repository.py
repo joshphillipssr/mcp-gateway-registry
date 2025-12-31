@@ -502,7 +502,7 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
                     await client.index(
                         index=self._index_name,
                         body=server_scope_doc,
-                        op_type='create'
+                        # op_type not supported in AOSS
                     )
             else:
                 await client.index(
@@ -538,7 +538,7 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
                     await client.index(
                         index=self._index_name,
                         body=group_mapping_doc,
-                        op_type='create'
+                        # op_type not supported in AOSS
                     )
             else:
                 await client.index(
@@ -574,7 +574,7 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
                     await client.index(
                         index=self._index_name,
                         body=ui_scope_doc,
-                        op_type='create'
+                        # op_type not supported in AOSS
                     )
             else:
                 await client.index(
