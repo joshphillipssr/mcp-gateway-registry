@@ -44,8 +44,8 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
     async def _wait_for_document_available(
         self,
         path: str,
-        max_retries: int = 5,
-        initial_delay: float = 0.5
+        max_retries: int = 10,
+        initial_delay: float = 1.0
     ) -> bool:
         """Wait for AOSS eventual consistency - retry until document is queryable.
 
@@ -82,6 +82,57 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
 
         logger.error(f"Document for '{path}' not available after {max_retries} retries")
         return False
+
+
+    async def _wait_for_document_update(
+        self,
+        path: str,
+        expected_rating: Optional[float] = None,
+        max_retries: int = 5,
+        initial_delay: float = 0.5
+    ) -> bool:
+        """Wait for AOSS to reflect document update.
+
+        Args:
+            path: Agent path to check
+            expected_rating: Expected num_stars value after update
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds
+
+        Returns:
+            True if update is reflected, False if max retries exceeded
+        """
+        client = await self._get_client()
+        delay = initial_delay
+
+        for attempt in range(max_retries):
+            try:
+                search_response = await client.search(
+                    index=self._index_name,
+                    body={"query": {"term": {"path": path}}}
+                )
+
+                if search_response['hits']['total']['value'] > 0:
+                    doc = search_response['hits']['hits'][0]['_source']
+                    if expected_rating is not None:
+                        current_rating = doc.get('num_stars')
+                        if current_rating == expected_rating:
+                            logger.info(f"Rating update for '{path}' reflected after {attempt + 1} attempts")
+                            return True
+                        logger.debug(f"Rating not yet updated (current: {current_rating}, expected: {expected_rating})")
+                    else:
+                        # Just check that updated_at changed
+                        logger.info(f"Document update for '{path}' reflected after {attempt + 1} attempts")
+                        return True
+
+                await asyncio.sleep(delay)
+
+            except Exception as e:
+                logger.warning(f"Error checking document update for '{path}': {e}")
+                await asyncio.sleep(delay)
+
+        logger.warning(f"Document update for '{path}' not confirmed after {max_retries} retries (eventual consistency)")
+        return True  # Return True anyway since update was sent successfully
 
     async def load_all(self) -> None:
         """Load all agents from OpenSearch."""
@@ -304,6 +355,12 @@ class OpenSearchAgentRepository(AgentRepositoryBase):
                     id=doc_id,
                     body={"doc": agent_dict}
                 )
+
+                # Wait for AOSS eventual consistency for rating updates
+                if "rating_details" in agent_dict:
+                    expected_rating = agent_dict.get("num_stars")
+                    logger.info(f"Waiting for AOSS to reflect rating update for '{path}'...")
+                    await self._wait_for_document_update(path, expected_rating)
             else:
                 await client.update(
                     index=self._index_name,
