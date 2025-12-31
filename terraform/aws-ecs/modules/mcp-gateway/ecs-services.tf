@@ -74,12 +74,12 @@ module "ecs_service_auth" {
   # Container definitions
   container_definitions = {
     auth-server = {
-      cpu                    = tonumber(var.cpu)
-      memory                 = tonumber(var.memory)
-      essential              = true
-      image                  = var.auth_server_image_uri
-      image_pull_policy      = "always"
-      readonlyRootFilesystem = false
+      cpu                          = tonumber(var.cpu)
+      memory                       = tonumber(var.memory)
+      essential                    = true
+      image                        = var.auth_server_image_uri
+      resolveImageDigestEnabled    = false
+      readonlyRootFilesystem       = false
 
       portMappings = [
         {
@@ -321,12 +321,12 @@ module "ecs_service_registry" {
   # Container definitions
   container_definitions = {
     registry = {
-      cpu                    = tonumber(var.cpu)
-      memory                 = tonumber(var.memory)
-      essential              = true
-      image                  = var.registry_image_uri
-      image_pull_policy      = "always"
-      readonlyRootFilesystem = false
+      cpu                          = tonumber(var.cpu)
+      memory                       = tonumber(var.memory)
+      essential                    = true
+      image                        = var.registry_image_uri
+      resolveImageDigestEnabled    = false
+      readonlyRootFilesystem       = false
 
       portMappings = [
         {
@@ -702,7 +702,7 @@ module "ecs_service_currenttime" {
       memory                 = 1024
       essential              = true
       image                  = var.currenttime_image_uri
-      image_pull_policy      = "always"
+      resolveImageDigestEnabled    = false
       readonlyRootFilesystem = false
 
       portMappings = [
@@ -826,7 +826,7 @@ module "ecs_service_mcpgw" {
       memory                 = 1024
       essential              = true
       image                  = var.mcpgw_image_uri
-      image_pull_policy      = "always"
+      resolveImageDigestEnabled    = false
       readonlyRootFilesystem = false
 
       portMappings = [
@@ -977,7 +977,7 @@ module "ecs_service_realserverfaketools" {
       memory                 = 1024
       essential              = true
       image                  = var.realserverfaketools_image_uri
-      image_pull_policy      = "always"
+      resolveImageDigestEnabled    = false
       readonlyRootFilesystem = false
 
       portMappings = [
@@ -1099,7 +1099,7 @@ module "ecs_service_flight_booking_agent" {
       memory                 = 1024
       essential              = true
       image                  = var.flight_booking_agent_image_uri
-      image_pull_policy      = "always"
+      resolveImageDigestEnabled    = false
       readonlyRootFilesystem = false
 
       portMappings = [
@@ -1221,7 +1221,7 @@ module "ecs_service_travel_assistant_agent" {
       memory                 = 1024
       essential              = true
       image                  = var.travel_assistant_agent_image_uri
-      image_pull_policy      = "always"
+      resolveImageDigestEnabled    = false
       readonlyRootFilesystem = false
 
       portMappings = [
