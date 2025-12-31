@@ -53,6 +53,41 @@ class OpenSearchSearchRepository(SearchRepositoryBase):
         """Convert path to document ID."""
         return path.replace("/", "_").strip("_")
 
+
+    async def _find_doc_id_by_path(
+        self,
+        path: str
+    ) -> Optional[str]:
+        """Find document ID by querying path field in AOSS.
+
+        Args:
+            path: Entity path to search for
+
+        Returns:
+            Document ID if found, None otherwise
+        """
+        client = await self._get_client()
+
+        try:
+            search_result = await client.search(
+                index=self._index_name,
+                body={
+                    "query": {
+                        "term": {"path": path}
+                    },
+                    "size": 1
+                }
+            )
+
+            if search_result["hits"]["total"]["value"] > 0:
+                return search_result["hits"]["hits"][0]["_id"]
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error finding document by path '{path}': {e}")
+            return None
+
+
     async def initialize(self) -> None:
         """Initialize the search service."""
         logger.info(f"Initializing OpenSearch hybrid search on index: {self._index_name}")
@@ -120,11 +155,20 @@ class OpenSearchSearchRepository(SearchRepositoryBase):
 
         try:
             if self._is_aoss():
-                # AOSS doesn't support custom IDs or refresh=true
-                await client.index(
-                    index=self._index_name,
-                    body=doc
-                )
+                # AOSS doesn't support custom IDs - update existing or create new
+                existing_doc_id = await self._find_doc_id_by_path(path)
+                if existing_doc_id:
+                    await client.update(
+                        index=self._index_name,
+                        id=existing_doc_id,
+                        body={"doc": doc}
+                    )
+                else:
+                    await client.index(
+                        index=self._index_name,
+                        body=doc,
+                        op_type='create'
+                    )
             else:
                 await client.index(
                     index=self._index_name,
@@ -189,11 +233,20 @@ class OpenSearchSearchRepository(SearchRepositoryBase):
 
         try:
             if self._is_aoss():
-                # AOSS doesn't support custom IDs or refresh=true
-                await client.index(
-                    index=self._index_name,
-                    body=doc
-                )
+                # AOSS doesn't support custom IDs - update existing or create new
+                existing_doc_id = await self._find_doc_id_by_path(path)
+                if existing_doc_id:
+                    await client.update(
+                        index=self._index_name,
+                        id=existing_doc_id,
+                        body={"doc": doc}
+                    )
+                else:
+                    await client.index(
+                        index=self._index_name,
+                        body=doc,
+                        op_type='create'
+                    )
             else:
                 await client.index(
                     index=self._index_name,

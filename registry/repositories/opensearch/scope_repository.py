@@ -41,6 +41,49 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
         """Create document ID from scope type and name."""
         return f"{scope_type}:{name}".replace("/", "_")
 
+
+    async def _find_doc_id_by_fields(
+        self,
+        query_fields: Dict[str, Any]
+    ) -> Optional[str]:
+        """Find document ID by querying specific fields in AOSS.
+
+        Args:
+            query_fields: Dictionary of field:value pairs to match
+
+        Returns:
+            Document ID if found, None otherwise
+        """
+        client = await self._get_client()
+
+        try:
+            # Build multi-field match query
+            must_clauses = [
+                {"term": {field: value}}
+                for field, value in query_fields.items()
+            ]
+
+            search_result = await client.search(
+                index=self._index_name,
+                body={
+                    "query": {
+                        "bool": {
+                            "must": must_clauses
+                        }
+                    },
+                    "size": 1
+                }
+            )
+
+            if search_result["hits"]["total"]["value"] > 0:
+                return search_result["hits"]["hits"][0]["_id"]
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error finding document by fields {query_fields}: {e}")
+            return None
+
+
     async def load_all(self) -> None:
         """Load all scopes from OpenSearch."""
         logger.info(f"Loading scopes from OpenSearch index: {self._index_name}")
@@ -445,11 +488,22 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
             }
 
             if self._is_aoss():
-                # AOSS doesn't support custom IDs or refresh=true
-                await client.index(
-                    index=self._index_name,
-                    body=server_scope_doc
+                # AOSS doesn't support custom IDs - query for existing and update or create
+                existing_doc_id = await self._find_doc_id_by_fields(
+                    {"scope_type": "server_scopes", "scope_name": group_name}
                 )
+                if existing_doc_id:
+                    await client.update(
+                        index=self._index_name,
+                        id=existing_doc_id,
+                        body={"doc": server_scope_doc}
+                    )
+                else:
+                    await client.index(
+                        index=self._index_name,
+                        body=server_scope_doc,
+                        op_type='create'
+                    )
             else:
                 await client.index(
                     index=self._index_name,
@@ -470,11 +524,22 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
             }
 
             if self._is_aoss():
-                # AOSS doesn't support custom IDs or refresh=true
-                await client.index(
-                    index=self._index_name,
-                    body=group_mapping_doc
+                # AOSS doesn't support custom IDs - query for existing and update or create
+                existing_doc_id = await self._find_doc_id_by_fields(
+                    {"scope_type": "group_mappings", "group_name": group_name}
                 )
+                if existing_doc_id:
+                    await client.update(
+                        index=self._index_name,
+                        id=existing_doc_id,
+                        body={"doc": group_mapping_doc}
+                    )
+                else:
+                    await client.index(
+                        index=self._index_name,
+                        body=group_mapping_doc,
+                        op_type='create'
+                    )
             else:
                 await client.index(
                     index=self._index_name,
@@ -495,11 +560,22 @@ class OpenSearchScopeRepository(ScopeRepositoryBase):
             }
 
             if self._is_aoss():
-                # AOSS doesn't support custom IDs or refresh=true
-                await client.index(
-                    index=self._index_name,
-                    body=ui_scope_doc
+                # AOSS doesn't support custom IDs - query for existing and update or create
+                existing_doc_id = await self._find_doc_id_by_fields(
+                    {"scope_type": "UI-Scopes", "scope_name": group_name}
                 )
+                if existing_doc_id:
+                    await client.update(
+                        index=self._index_name,
+                        id=existing_doc_id,
+                        body={"doc": ui_scope_doc}
+                    )
+                else:
+                    await client.index(
+                        index=self._index_name,
+                        body=ui_scope_doc,
+                        op_type='create'
+                    )
             else:
                 await client.index(
                     index=self._index_name,

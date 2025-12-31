@@ -172,6 +172,7 @@ class OpenSearchFederationConfigRepository(FederationConfigRepositoryBase):
             # Check if config exists to determine if this is create or update
             # Skip this check for AOSS due to eventual consistency issues
             existing = None
+            existing_doc_id = None
             if not self._is_aoss():
                 try:
                     existing_doc = await client.get(index=self._index_name, id=config_id)
@@ -192,6 +193,7 @@ class OpenSearchFederationConfigRepository(FederationConfigRepositoryBase):
                     )
                     if search_result["hits"]["total"]["value"] > 0:
                         existing = search_result["hits"]["hits"][0]["_source"]
+                        existing_doc_id = search_result["hits"]["hits"][0]["_id"]
                 except (NotFoundError, RequestError):
                     # Index might not be ready yet, treat as new config
                     pass
@@ -212,11 +214,19 @@ class OpenSearchFederationConfigRepository(FederationConfigRepositoryBase):
 
             # Index the document
             if self._is_aoss():
-                # AOSS doesn't support custom IDs or refresh=true
-                await client.index(
-                    index=self._index_name,
-                    body=doc
-                )
+                # AOSS doesn't support custom IDs - update existing or create new
+                if existing_doc_id:
+                    await client.update(
+                        index=self._index_name,
+                        id=existing_doc_id,
+                        body={"doc": doc}
+                    )
+                else:
+                    await client.index(
+                        index=self._index_name,
+                        body=doc,
+                        op_type='create'
+                    )
             else:
                 await client.index(
                     index=self._index_name,
