@@ -3655,11 +3655,14 @@ async def rate_server(
             detail=f"Server not found at path '{path}'",
         )
 
+    # Use the actual path from the server (handles trailing slash normalization)
+    actual_path = server_info.get("path", path)
+
     # For non-admin users, check if they have access to this specific server
     if not user_context['is_admin']:
-        if not await server_service.user_can_access_server_path(path, user_context['accessible_servers']):
+        if not await server_service.user_can_access_server_path(actual_path, user_context['accessible_servers']):
             logger.warning(
-                f"User {user_context['username']} attempted to rate server {path} without permission"
+                f"User {user_context['username']} attempted to rate server {actual_path} without permission"
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -3667,7 +3670,7 @@ async def rate_server(
             )
 
     try:
-        avg_rating = await server_service.update_rating(path, user_context["username"], request.rating)
+        avg_rating = await server_service.update_rating(actual_path, user_context["username"], request.rating)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
