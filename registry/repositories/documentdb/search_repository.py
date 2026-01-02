@@ -228,17 +228,18 @@ class DocumentDBSearchRepository(SearchRepositoryBase):
 
             pipeline = [
                 {
-                    "$vectorSearch": {
-                        "queryVector": query_embedding,
-                        "path": "embedding",
-                        "numCandidates": max_results * 10,
-                        "limit": max_results * 2,
-                        "index": "embedding_vector_idx"
+                    "$search": {
+                        "vectorSearch": {
+                            "vector": query_embedding,
+                            "path": "embedding",
+                            "k": max_results * 10,
+                            "index": "embedding_vector_idx"
+                        }
                     }
                 },
                 {
                     "$addFields": {
-                        "vector_score": {"$meta": "vectorSearchScore"}
+                        "vector_score": {"$meta": "searchScore"}
                     }
                 },
                 {

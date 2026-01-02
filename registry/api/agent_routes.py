@@ -441,7 +441,7 @@ async def list_agents(
         logger.debug(f"[GET_AGENTS_DEBUG] Scopes: {user_context.get('scopes', 'NOT PRESENT')}")
         logger.debug(f"[GET_AGENTS_DEBUG] Auth method: {user_context.get('auth_method', 'NOT PRESENT')}")
 
-    all_agents = agent_service.get_all_agents()
+    all_agents = await agent_service.get_all_agents()
 
     accessible_agents = _filter_agents_by_access(all_agents, user_context)
 
@@ -979,7 +979,7 @@ async def discover_agents_by_skills(
         f"User {user_context['username']} discovering agents with skills: {skills}"
     )
 
-    all_agents = agent_service.get_all_agents()
+    all_agents = await agent_service.get_all_agents()
     accessible_agents = _filter_agents_by_access(all_agents, user_context)
 
     matched_agents = []
@@ -1098,7 +1098,7 @@ async def discover_agents_semantic(
         # Extract agents from search results
         results = search_results.get("agents", [])
 
-        all_agents = agent_service.get_all_agents()
+        all_agents = await agent_service.get_all_agents()
         agent_map = {agent.path: agent for agent in all_agents}
 
         accessible_results = []

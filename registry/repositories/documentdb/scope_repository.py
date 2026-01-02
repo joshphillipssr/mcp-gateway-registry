@@ -72,8 +72,11 @@ class DocumentDBScopeRepository(ScopeRepositoryBase):
         group_name: str,
     ) -> Dict[str, Any]:
         """Get UI scopes for a Keycloak group."""
+        logger.debug(f"DocumentDB READ: Getting UI scopes for group '{group_name}' from cache")
         ui_scopes = self._scopes_cache.get("UI-Scopes", {})
-        return ui_scopes.get(group_name, {})
+        scopes = ui_scopes.get(group_name, {})
+        logger.debug(f"DocumentDB READ: Found {len(scopes)} UI scopes for group '{group_name}'")
+        return scopes
 
 
     async def get_group_mappings(
@@ -90,7 +93,10 @@ class DocumentDBScopeRepository(ScopeRepositoryBase):
         scope_name: str,
     ) -> List[Dict[str, Any]]:
         """Get server access rules for a scope."""
-        return self._scopes_cache.get(scope_name, [])
+        logger.debug(f"DocumentDB READ: Getting server access rules for scope '{scope_name}' from cache")
+        rules = self._scopes_cache.get(scope_name, [])
+        logger.debug(f"DocumentDB READ: Found {len(rules)} access rules for scope '{scope_name}'")
+        return rules
 
 
     async def add_server_scope(
@@ -489,4 +495,81 @@ class DocumentDBScopeRepository(ScopeRepositoryBase):
             return True
         except Exception as e:
             logger.error(f"Failed to remove server from all scopes in DocumentDB: {e}", exc_info=True)
+            return False
+
+
+    async def import_group(
+        self,
+        group_name: str,
+        description: str = "",
+        server_access: list = None,
+        group_mappings: list = None,
+        ui_permissions: dict = None,
+    ) -> bool:
+        """
+        Import a complete group definition.
+
+        Args:
+            group_name: Name of the group
+            description: Description of the group
+            server_access: List of server access definitions
+            group_mappings: List of group names this group maps to
+            ui_permissions: Dictionary of UI permissions
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            collection = await self._get_collection()
+
+            # Set defaults
+            if server_access is None:
+                server_access = []
+            if group_mappings is None:
+                group_mappings = [group_name]
+            if ui_permissions is None:
+                ui_permissions = {"list_service": []}
+
+            # Create the complete group document
+            group_doc = {
+                "_id": group_name,
+                "scope_type": "group",
+                "description": description,
+                "server_access": server_access,
+                "group_mappings": group_mappings,
+                "ui_permissions": ui_permissions,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+
+            # Use replace_one with upsert=True to create or replace the entire document
+            result = await collection.replace_one(
+                {"_id": group_name},
+                group_doc,
+                upsert=True
+            )
+
+            # Update in-memory cache
+            self._scopes_cache.setdefault("UI-Scopes", {})[group_name] = ui_permissions
+            self._scopes_cache.setdefault("group_mappings", {})[group_name] = group_mappings
+
+            # Update server access in cache
+            for scope_entry in server_access:
+                scope_name = scope_entry.get("scope_name")
+                if scope_name:
+                    if scope_name not in self._scopes_cache:
+                        self._scopes_cache[scope_name] = []
+                    self._scopes_cache[scope_name].extend(
+                        scope_entry.get("access_rules", [])
+                    )
+
+            if result.upserted_id:
+                logger.info(f"Created new group '{group_name}' via import")
+            else:
+                logger.info(f"Updated existing group '{group_name}' via import")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to import group {group_name}: {e}", exc_info=True)
             return False

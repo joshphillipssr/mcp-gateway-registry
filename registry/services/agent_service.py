@@ -470,14 +470,15 @@ class AgentService:
         return await self._repo.get(path)
 
 
-    def get_all_agents(self) -> List[AgentCard]:
+    async def get_all_agents(self) -> List[AgentCard]:
         """
-        Get all registered agents.
+        Get all registered agents - queries repository directly.
 
         Returns:
             List of all agent cards
         """
-        return self.list_agents()
+        # Query repository directly instead of using cache
+        return await self._repo.list_all()
 
 
     async def remove_agent(
