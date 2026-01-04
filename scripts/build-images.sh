@@ -159,9 +159,9 @@ try:
         context = image_config.get('context', '.')
         build_args = image_config.get('build_args', {})
 
+        # Skip external images (they don't have dockerfiles, only external_image)
         if not repo_name or not dockerfile:
-            print(f"ERROR: Image '{name}' missing repo_name or dockerfile", file=sys.stderr)
-            sys.exit(1)
+            continue
 
         # Format build_args as key=value pairs separated by spaces
         build_args_str = ' '.join([f"{k}={v}" for k, v in build_args.items()])
