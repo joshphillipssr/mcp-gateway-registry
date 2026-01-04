@@ -10,8 +10,7 @@ This guide provides a comprehensive, step-by-step walkthrough for setting up the
 5. [Setting Up Keycloak Identity Provider](#5-setting-up-keycloak-identity-provider)
 6. [Starting the MCP Gateway Services](#6-starting-the-mcp-gateway-services)
 7. [Storage Backend Setup (Optional)](#7-storage-backend-setup-optional)
-   - [MongoDB CE Setup](#mongodb-ce-setup-local-development)
-   - [OpenSearch Setup](#opensearch-setup-local-installation-only)
+   - [MongoDB CE Setup (Recommended)](#mongodb-ce-setup-recommended-for-local-development)
 8. [Verification and Testing](#8-verification-and-testing)
 9. [Configuring AI Agents and Coding Assistants](#9-configuring-ai-agents-and-coding-assistants)
 10. [Troubleshooting](#10-troubleshooting)
@@ -597,19 +596,27 @@ curl http://localhost:7860/health
 
 ## 7. Storage Backend Setup (Optional)
 
-The MCP Gateway Registry supports multiple storage backends for production and development use. By default, the file-based backend is used, which requires no additional setup. This section covers optional backend configurations.
+The MCP Gateway Registry supports multiple storage backends for production and development use.
 
-### MongoDB CE Setup (Local Development)
+**DEPRECATION WARNING**: The file-based storage backend is deprecated and will be removed in a future release. MongoDB CE is now the recommended approach for local development.
 
-**Note**: This section is for local Docker Compose installations using MongoDB Community Edition 8.2 for development and testing. For AWS ECS deployments, DocumentDB is used and initialized automatically.
+**Storage Backend Options:**
+- **MongoDB CE**: Recommended for local development (see below)
+- **DocumentDB**: Used automatically in production (AWS ECS/EKS deployments)
+- **File-based**: Deprecated - will be removed in future releases
+
+### MongoDB CE Setup (Recommended for Local Development)
+
+**Note**: This section is for local Docker Compose installations using MongoDB Community Edition 8.2. For AWS ECS deployments, DocumentDB is used and initialized automatically.
 
 MongoDB CE provides a production-like environment for local development with replica set support and application-level vector search capabilities.
 
-**When to use MongoDB CE:**
-- Local development needing database features
+**Why use MongoDB CE (Recommended):**
+- Production-like environment for local development
 - Testing production workflows locally
 - Multi-instance development environments
 - Feature development requiring database operations
+- Compatibility with DocumentDB for seamless cloud migration
 
 **Setup MongoDB CE:**
 
@@ -654,32 +661,6 @@ docker compose restart registry
 - Compatible with DocumentDB API for seamless cloud migration
 
 For detailed MongoDB CE architecture and configuration options, see [Storage Architecture Documentation](design/storage-architecture-mongodb-documentdb.md).
-
-**When to skip MongoDB CE setup:**
-- Using file-based storage backend (default)
-- Deploying to AWS ECS/EKS (uses DocumentDB automatically)
-- Simple development workflows not requiring database features
-
-### OpenSearch Setup (Local Installation Only)
-
-**Note**: This section is ONLY for local Docker Compose installations. For AWS ECS/EKS deployments, OpenSearch initialization is handled automatically by the infrastructure scripts.
-
-If you're using OpenSearch as your storage backend (instead of file-based storage), you need to initialize the indices and import scope data:
-
-```bash
-# Initialize OpenSearch indices
-uv run python scripts/init-opensearch.py
-
-# Import authorization scopes from YAML to OpenSearch
-uv run python scripts/import-scopes-to-opensearch.py
-```
-
-For detailed information about OpenSearch setup, data migration, and troubleshooting, see [OpenSearch Import Guide](../scripts/README-OPENSEARCH-IMPORT.md).
-
-**When to skip OpenSearch setup:**
-- Using file-based storage backend (default)
-- Deploying to AWS ECS/EKS (automated setup)
-- Not using OpenSearch features
 
 ---
 

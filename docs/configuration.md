@@ -171,21 +171,24 @@ SESSION_COOKIE_DOMAIN=  # Empty string or unset
 
 ### Storage Backend Configuration
 
-The MCP Gateway Registry supports three storage backends for servers, agents, and scopes management. Choose based on your deployment requirements:
+The MCP Gateway Registry supports three storage backends for servers, agents, and scopes management.
 
 | Variable | Description | Values | Default |
 |----------|-------------|--------|---------|
 | `STORAGE_BACKEND` | Storage backend for registry data | `file`, `mongodb-ce`, or `documentdb` | `file` |
 
+> **⚠️ DEPRECATION WARNING:** File-based storage is deprecated and will be removed in a future release. MongoDB CE is now the recommended backend for local development and testing.
+
 **Backend Options:**
 
-#### File Backend (Default)
-- **Best for**: Development, small deployments, single-instance setups
+#### File Backend (Deprecated)
+- **Status**: **DEPRECATED** - Will be removed in a future release
+- **Migration Path**: Switch to MongoDB CE for local development or DocumentDB for production
 - **Pros**: Simple, no external dependencies, human-readable JSON files
-- **Cons**: Limited concurrent writes, no distributed access, FAISS-based vector search
+- **Cons**: Limited concurrent writes, no distributed access, FAISS-based vector search, **deprecated**
 
 ```bash
-STORAGE_BACKEND=file
+STORAGE_BACKEND=file  # DEPRECATED - Use mongodb-ce instead
 ```
 
 **Data stored in:**
@@ -194,10 +197,11 @@ STORAGE_BACKEND=file
 - Scopes: `auth_server/scopes.yml`
 - Security scans: `~/mcp-gateway/security_scans/*.json`
 
-#### MongoDB CE Backend (Local Development)
-- **Best for**: Local development, feature development, testing
-- **Pros**: Docker-based, no cloud dependencies, replica set support, application-level vector search
-- **Cons**: Limited to ~10,000 documents, O(n) vector search performance
+#### MongoDB CE Backend (Recommended for Local Development)
+- **Status**: **RECOMMENDED** for all local development and testing
+- **Best for**: Local development, feature development, testing, CI/CD pipelines
+- **Pros**: Docker-based, no cloud dependencies, replica set support, application-level vector search, production-like environment
+- **Cons**: Limited to ~10,000 documents, O(n) vector search performance (acceptable for development)
 
 ```bash
 STORAGE_BACKEND=mongodb-ce

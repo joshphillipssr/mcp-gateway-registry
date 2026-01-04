@@ -154,7 +154,7 @@ async def lifespan(app: FastAPI):
         from registry.repositories.factory import get_federation_config_repository
 
         try:
-            # Load federation config from OpenSearch
+            # Load federation config
             federation_repo = get_federation_config_repository()
             federation_config = await federation_repo.get_config("default")
 

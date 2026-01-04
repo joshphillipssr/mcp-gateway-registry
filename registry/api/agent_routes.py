@@ -1071,7 +1071,7 @@ async def discover_agents_semantic(
     """
     Discover agents using natural language semantic search.
 
-    Uses search repository (FAISS or OpenSearch) to find agents matching the query intent.
+    Uses search repository (FAISS or DocumentDB) to find agents matching the query intent.
 
     Args:
         query: Natural language query describing needed capabilities

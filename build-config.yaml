@@ -77,16 +77,6 @@ images:
   # Infrastructure Services
   # ========================================
 
-  # OpenSearch Search Engine
-  opensearch:
-    repo_name: "opensearch"
-    external_image: "opensearchproject/opensearch:2.11.1"
-    description: "OpenSearch distributed search and analytics engine (mirrored from Docker Hub)"
-    tags:
-      - "2.11.1"
-      - latest
-    build_args: {}
-
   # MongoDB Community Edition 8.2
   mongodb:
     repo_name: "mongodb"
