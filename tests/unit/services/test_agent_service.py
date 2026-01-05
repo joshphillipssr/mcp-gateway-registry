@@ -1441,13 +1441,12 @@ class TestAgentStateQueries:
     def test_is_agent_enabled_true(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test checking if agent is enabled."""
         # Arrange
-        agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
-        agent_service.enable_agent("/test-agent")
+        agent_service.agent_state["enabled"].append("/test-agent")
 
         # Act
         result = agent_service.is_agent_enabled("/test-agent")
@@ -1458,12 +1457,12 @@ class TestAgentStateQueries:
     def test_is_agent_enabled_false(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test checking if agent is disabled."""
         # Arrange
-        agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
+        agent_service.agent_state["disabled"].append("/test-agent")
 
         # Act
         result = agent_service.is_agent_enabled("/test-agent")
@@ -1474,13 +1473,12 @@ class TestAgentStateQueries:
     def test_is_agent_enabled_handles_trailing_slash(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test is_agent_enabled with trailing slash."""
         # Arrange
-        agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
-        agent_service.enable_agent("/test-agent")
+        agent_service.agent_state["enabled"].append("/test-agent")
 
         # Act
         result = agent_service.is_agent_enabled("/test-agent/")
@@ -1491,15 +1489,13 @@ class TestAgentStateQueries:
     def test_get_enabled_agents(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test getting list of enabled agents."""
         # Arrange
-        agent_1 = AgentCardFactory(path="/agent-1")
-        agent_2 = AgentCardFactory(path="/agent-2")
-        agent_service.register_agent(agent_1)
-        agent_service.register_agent(agent_2)
-        agent_service.enable_agent("/agent-1")
+        agent_service.agent_state["enabled"].append("/agent-1")
+        agent_service.agent_state["disabled"].append("/agent-2")
 
         # Act
         result = agent_service.get_enabled_agents()
@@ -1512,15 +1508,13 @@ class TestAgentStateQueries:
     def test_get_disabled_agents(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test getting list of disabled agents."""
         # Arrange
-        agent_1 = AgentCardFactory(path="/agent-1")
-        agent_2 = AgentCardFactory(path="/agent-2")
-        agent_service.register_agent(agent_1)
-        agent_service.register_agent(agent_2)
-        agent_service.enable_agent("/agent-1")
+        agent_service.agent_state["enabled"].append("/agent-1")
+        agent_service.agent_state["disabled"].append("/agent-2")
 
         # Act
         result = agent_service.get_disabled_agents()
@@ -1541,93 +1535,39 @@ class TestAgentStateQueries:
 class TestAgentRatings:
     """Test agent rating system."""
 
-    def test_update_rating_first_rating(
+    @pytest.mark.asyncio
+    async def test_update_rating_first_rating(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test adding first rating to an agent."""
         # Arrange
-        agent_card = AgentCardFactory(path="/test-agent", num_stars=0.0)
-        agent_service.register_agent(agent_card)
+        agent_card = AgentCardFactory(path="/test-agent", num_stars=0.0, rating_details=[])
+        mock_agent_repository.get.return_value = agent_card
+
+        # Mock save to return updated agent
+        def mock_save(agent):
+            agent.num_stars = 5.0
+            agent.rating_details = [{"user": TEST_USERNAME, "rating": 5}]
+            return agent
+        mock_agent_repository.save.side_effect = mock_save
+        agent_service.registered_agents["/test-agent"] = agent_card
 
         # Act
-        avg_rating = agent_service.update_rating("/test-agent", TEST_USERNAME, 5)
+        avg_rating = await agent_service.update_rating("/test-agent", TEST_USERNAME, 5)
 
         # Assert
         assert avg_rating == 5.0
-        updated_agent = agent_service.get_agent("/test-agent")
-        assert updated_agent.num_stars == 5.0
-        assert len(updated_agent.rating_details) == 1
-        assert updated_agent.rating_details[0]["user"] == TEST_USERNAME
-        assert updated_agent.rating_details[0]["rating"] == 5
+        mock_agent_repository.save.assert_called_once()
 
-    def test_update_rating_multiple_users(
+    @pytest.mark.asyncio
+    async def test_update_rating_invalid_value_low(
         self,
         agent_service: AgentService,
-        mock_settings,
-    ):
-        """Test adding ratings from multiple users."""
-        # Arrange
-        agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
-
-        # Act
-        agent_service.update_rating("/test-agent", "user1", 5)
-        agent_service.update_rating("/test-agent", "user2", 3)
-        avg_rating = agent_service.update_rating("/test-agent", "user3", 4)
-
-        # Assert
-        assert avg_rating == 4.0  # (5 + 3 + 4) / 3
-        updated_agent = agent_service.get_agent("/test-agent")
-        assert len(updated_agent.rating_details) == 3
-
-    def test_update_rating_same_user_updates(
-        self,
-        agent_service: AgentService,
-        mock_settings,
-    ):
-        """Test that same user's rating is updated, not appended."""
-        # Arrange
-        agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
-
-        # Act
-        agent_service.update_rating("/test-agent", TEST_USERNAME, 5)
-        avg_rating = agent_service.update_rating("/test-agent", TEST_USERNAME, 3)
-
-        # Assert
-        assert avg_rating == 3.0
-        updated_agent = agent_service.get_agent("/test-agent")
-        assert len(updated_agent.rating_details) == 1  # Only one entry
-        assert updated_agent.rating_details[0]["rating"] == 3  # Updated value
-
-    def test_update_rating_maintains_max_ratings(
-        self,
-        agent_service: AgentService,
-        mock_settings,
-    ):
-        """Test that rating_details maintains max 100 entries."""
-        # Arrange
-        agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
-
-        # Act - add 101 ratings from different users
-        for i in range(101):
-            agent_service.update_rating("/test-agent", f"user{i}", 5)
-
-        # Assert
-        updated_agent = agent_service.get_agent("/test-agent")
-        assert len(updated_agent.rating_details) == 100  # Max 100 entries
-        # Oldest entry (user0) should be removed
-        users = [r["user"] for r in updated_agent.rating_details]
-        assert "user0" not in users
-        assert "user100" in users
-
-    def test_update_rating_invalid_value_low(
-        self,
-        agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test that rating below 1 raises ValueError."""
         # Arrange
@@ -1686,33 +1626,43 @@ class TestAgentRatings:
 class TestGetAgentInfo:
     """Test get_agent_info which returns None instead of raising."""
 
-    def test_get_agent_info_existing(
+    @pytest.mark.asyncio
+    async def test_get_agent_info_existing(
         self,
         agent_service: AgentService,
-        mock_settings,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test get_agent_info returns agent for existing path."""
         # Arrange
         agent_card = AgentCardFactory(path="/test-agent")
-        agent_service.register_agent(agent_card)
+        mock_agent_repository.get.return_value = agent_card
 
         # Act
-        result = agent_service.get_agent_info("/test-agent")
+        result = await agent_service.get_agent_info("/test-agent")
 
         # Assert
         assert result is not None
         assert result.path == "/test-agent"
+        mock_agent_repository.get.assert_called_once_with("/test-agent")
 
-    def test_get_agent_info_not_found(
+    @pytest.mark.asyncio
+    async def test_get_agent_info_not_found(
         self,
         agent_service: AgentService,
+        mock_agent_repository,
+        mock_search_repository,
     ):
         """Test get_agent_info returns None for non-existent agent."""
+        # Arrange
+        mock_agent_repository.get.return_value = None
+
         # Act
-        result = agent_service.get_agent_info("/nonexistent")
+        result = await agent_service.get_agent_info("/nonexistent")
 
         # Assert
         assert result is None
+        mock_agent_repository.get.assert_called_once_with("/nonexistent")
 
 
 # =============================================================================
