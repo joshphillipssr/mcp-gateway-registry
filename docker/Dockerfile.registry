@@ -95,15 +95,17 @@ ENV BUILD_VERSION=$BUILD_VERSION
 # Copy Python virtual environment from backend builder
 COPY --from=backend-builder /app/.venv /app/.venv
 
-# Copy application code from backend builder
-COPY --from=backend-builder /app /app
+# Copy only necessary application code from backend builder (not entire /app)
+COPY --from=backend-builder /app/registry /app/registry
+COPY --from=backend-builder /app/auth_server /app/auth_server
+COPY --from=backend-builder /app/api /app/api
+COPY --from=backend-builder /app/config /app/config
+COPY --from=backend-builder /app/docker /app/docker
+COPY --from=backend-builder /app/pyproject.toml /app/pyproject.toml
+COPY --from=backend-builder /app/README.md /app/README.md
 
 # Copy built frontend from frontend builder
 COPY --from=frontend-builder /app/frontend/build /app/frontend/build
-
-# Copy nginx configurations
-COPY docker/nginx_rev_proxy_http_only.conf /app/docker/nginx_rev_proxy_http_only.conf
-COPY docker/nginx_rev_proxy_http_and_https.conf /app/docker/nginx_rev_proxy_http_and_https.conf
 
 # Create logs directory
 RUN mkdir -p /app/logs
