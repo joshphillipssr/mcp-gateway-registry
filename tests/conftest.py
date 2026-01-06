@@ -26,6 +26,46 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# ENVIRONMENT SETUP (BEFORE ANY IMPORTS)
+# =============================================================================
+# Set environment variables for test environment BEFORE any app code imports
+# This ensures Settings loads the correct values for tests
+
+
+def pytest_configure(config):
+    """
+    Pytest hook that runs BEFORE test collection.
+
+    This runs before any imports happen, ensuring environment variables
+    are set before Settings() is created.
+    """
+    # Set MongoDB connection to localhost for tests
+    # (Docker deployments use 'mongodb' hostname from docker-compose.yml)
+    os.environ["DOCUMENTDB_HOST"] = "localhost"
+    os.environ["DOCUMENTDB_PORT"] = "27017"
+
+    # Keep mongodb-ce as storage backend for integration tests
+    os.environ["STORAGE_BACKEND"] = "mongodb-ce"
+
+    # Use directConnection for single-node MongoDB in tests
+    # (AWS DocumentDB clusters should NOT use directConnection)
+    os.environ["DOCUMENTDB_DIRECT_CONNECTION"] = "true"
+
+    print("Test environment configured: DOCUMENTDB_HOST=localhost, STORAGE_BACKEND=mongodb-ce, DOCUMENTDB_DIRECT_CONNECTION=true")
+
+    # Force reload settings if it's already been imported
+    # This is needed because Settings() is created at module level
+    try:
+        import registry.core.config as config_module
+        # Recreate the settings object with the new environment variables
+        config_module.settings = config_module.Settings()
+        print(f"Reloaded settings with documentdb_host={config_module.settings.documentdb_host}")
+    except ImportError:
+        # Settings hasn't been imported yet, which is fine
+        pass
+
+
+# =============================================================================
 # SSL PATH MOCKING (BEFORE ANY IMPORTS)
 # =============================================================================
 # This must run FIRST to avoid permission errors when nginx_service is imported

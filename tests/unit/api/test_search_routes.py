@@ -58,6 +58,62 @@ def mock_agent_service():
         yield mock
 
 
+@pytest.fixture(autouse=True)
+def mock_server_and_agent_service_db_calls():
+    """Mock server_service and agent_service to avoid MongoDB connections in unit tests.
+
+    This is an autouse fixture that automatically patches both services
+    for ALL tests in this file to prevent slow MongoDB connection attempts.
+    """
+    # Mock get_server_info method to return server info based on path
+    async def get_server_info(path: str):
+        # Return mock server info for known paths
+        if "currenttime" in path or "Time Server" in path:
+            return {
+                "path": path,
+                "server_name": "Time Server",
+                "description": "Time utilities",
+                "tags": ["time"],
+                "num_tools": 1,
+            }
+        elif "restricted" in path:
+            return {
+                "path": path,
+                "server_name": "restricted",
+                "description": "Restricted server",
+                "tags": [],
+                "num_tools": 0,
+            }
+        elif "mcpgw" in path:
+            return {
+                "path": path,
+                "server_name": "mcpgw",
+                "description": "MCP Gateway",
+                "tags": ["gateway"],
+                "num_tools": 5,
+            }
+        return None
+
+    # Mock get_agent_info method to return agent info based on path
+    async def get_agent_info(path: str):
+        # Return mock agent card for known paths
+        from registry.schemas.agent_models import AgentCard
+        from tests.fixtures.factories import AgentCardFactory
+
+        if "code-reviewer" in path:
+            return AgentCardFactory(path=path, name="code-reviewer", visibility="public")
+        elif "test-agent" in path:
+            return AgentCardFactory(path=path, name="test-agent", visibility="public")
+        elif "data-analyst" in path:
+            return AgentCardFactory(path=path, name="data-analyst", visibility="public")
+        return None
+
+    # Patch both service methods
+    with patch("registry.api.search_routes.server_service.get_server_info", new=AsyncMock(side_effect=get_server_info)), \
+         patch("registry.api.search_routes.agent_service.get_agent_info", new=AsyncMock(side_effect=get_agent_info)):
+        yield
+
+
 @pytest.fixture
 def admin_user_context() -> dict[str, Any]:
     """Create admin user context for testing."""
