@@ -9,7 +9,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
 import pytest
@@ -533,6 +533,36 @@ def mock_scopes_config_file(tmp_path, mock_scopes_config):
 
     logger.debug(f"Created mock scopes config file: {scopes_file}")
     return scopes_file
+
+
+@pytest.fixture
+def mock_scope_repository_with_data(mock_scopes_config):
+    """
+    Create a mocked scope repository that returns data from mock_scopes_config.
+
+    Args:
+        mock_scopes_config: Mock scopes configuration fixture
+
+    Returns:
+        AsyncMock scope repository with get_server_scopes method
+    """
+    mock_repo = AsyncMock()
+
+    # Mock get_server_scopes to return the scope data from mock_scopes_config
+    async def get_server_scopes_side_effect(scope_name: str):
+        """Return server access rules for a scope from mock_scopes_config."""
+        # Return the scope data if it exists, otherwise empty list
+        return mock_scopes_config.get(scope_name, [])
+
+    mock_repo.get_server_scopes.side_effect = get_server_scopes_side_effect
+    mock_repo.load_all = AsyncMock()
+    mock_repo.get_group_mappings.return_value = mock_scopes_config.get("group_mappings", {})
+    mock_repo.list_groups.return_value = {}
+    mock_repo.get_group.return_value = None
+    mock_repo.get_scope_definition.return_value = None
+    mock_repo.list_scope_definitions.return_value = []
+
+    return mock_repo
 
 
 # =============================================================================

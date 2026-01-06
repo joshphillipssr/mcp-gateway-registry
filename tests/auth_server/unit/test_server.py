@@ -243,12 +243,12 @@ class TestScopeValidation:
     """Tests for scope-based access validation."""
 
     @pytest.mark.asyncio
-    async def test_validate_server_tool_access_allowed(self, mock_scopes_config):
+    async def test_validate_server_tool_access_allowed(self, mock_scope_repository_with_data):
         """Test access validation when allowed."""
         from auth_server.server import validate_server_tool_access
 
         # Arrange
-        with patch.dict('auth_server.server.SCOPES_CONFIG', mock_scopes_config):
+        with patch('auth_server.server.get_scope_repository', return_value=mock_scope_repository_with_data):
             server_name = "test-server"
             method = "initialize"
             tool_name = None
@@ -261,12 +261,12 @@ class TestScopeValidation:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_validate_server_tool_access_denied(self, mock_scopes_config):
+    async def test_validate_server_tool_access_denied(self, mock_scope_repository_with_data):
         """Test access validation when denied."""
         from auth_server.server import validate_server_tool_access
 
         # Arrange
-        with patch.dict('auth_server.server.SCOPES_CONFIG', mock_scopes_config):
+        with patch('auth_server.server.get_scope_repository', return_value=mock_scope_repository_with_data):
             server_name = "other-server"
             method = "initialize"
             tool_name = None
@@ -279,12 +279,12 @@ class TestScopeValidation:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_validate_server_tool_access_wildcard_server(self, mock_scopes_config):
+    async def test_validate_server_tool_access_wildcard_server(self, mock_scope_repository_with_data):
         """Test wildcard server access."""
         from auth_server.server import validate_server_tool_access
 
         # Arrange
-        with patch.dict('auth_server.server.SCOPES_CONFIG', mock_scopes_config):
+        with patch('auth_server.server.get_scope_repository', return_value=mock_scope_repository_with_data):
             server_name = "any-server"
             method = "initialize"
             tool_name = None
@@ -297,12 +297,12 @@ class TestScopeValidation:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_validate_server_tool_access_tools_call(self, mock_scopes_config):
+    async def test_validate_server_tool_access_tools_call(self, mock_scope_repository_with_data):
         """Test access validation for tools/call method."""
         from auth_server.server import validate_server_tool_access
 
         # Arrange
-        with patch.dict('auth_server.server.SCOPES_CONFIG', mock_scopes_config):
+        with patch('auth_server.server.get_scope_repository', return_value=mock_scope_repository_with_data):
             server_name = "test-server"
             method = "tools/call"
             tool_name = "test-tool"
@@ -606,25 +606,15 @@ class TestValidateEndpoint:
     """Tests for /validate endpoint."""
 
     @patch('auth_server.server.get_auth_provider')
-    def test_validate_with_valid_token(self, mock_get_provider, mock_cognito_provider, auth_env_vars):
+    def test_validate_with_valid_token(self, mock_get_provider, mock_cognito_provider, auth_env_vars, mock_scope_repository_with_data):
         """Test validation with valid JWT token."""
         # Arrange
         mock_get_provider.return_value = mock_cognito_provider
 
         import auth_server.server as server_module
 
-        # Patch SCOPES_CONFIG to allow test
-        mock_scopes = {
-            "group_mappings": {
-                "users": ["read:servers"],
-                "developers": ["write:servers"]
-            },
-            "read:servers": [
-                {"server": "test-server", "methods": ["initialize"], "tools": []}
-            ]
-        }
-
-        with patch.dict('auth_server.server.SCOPES_CONFIG', mock_scopes):
+        # Patch scope repository to return test data
+        with patch('auth_server.server.get_scope_repository', return_value=mock_scope_repository_with_data):
             client = TestClient(server_module.app)
 
             # Act
@@ -667,7 +657,7 @@ class TestValidateEndpoint:
         assert "Internal validation error" in response.json()["detail"]
 
     @patch('auth_server.server.get_auth_provider')
-    def test_validate_with_session_cookie(self, mock_get_provider, auth_env_vars, valid_session_cookie):
+    def test_validate_with_session_cookie(self, mock_get_provider, auth_env_vars, valid_session_cookie, mock_scope_repository_with_data):
         """Test validation with valid session cookie."""
         # Arrange
         from itsdangerous import URLSafeTimedSerializer
@@ -677,17 +667,7 @@ class TestValidateEndpoint:
         # Create signer with test SECRET_KEY (module's signer uses different key loaded at import)
         test_signer = URLSafeTimedSerializer(auth_env_vars["SECRET_KEY"])
 
-        mock_scopes = {
-            "group_mappings": {
-                "users": ["read:servers"],
-                "developers": ["write:servers"]
-            },
-            "read:servers": [
-                {"server": "test-server", "methods": ["initialize"], "tools": []}
-            ]
-        }
-
-        with patch.dict('auth_server.server.SCOPES_CONFIG', mock_scopes):
+        with patch('auth_server.server.get_scope_repository', return_value=mock_scope_repository_with_data):
             with patch('auth_server.server.signer', test_signer):
                 client = TestClient(server_module.app)
 
@@ -844,12 +824,12 @@ class TestGenerateTokenEndpoint:
 class TestReloadScopesEndpoint:
     """Tests for /internal/reload-scopes endpoint."""
 
-    @patch('auth_server.server.load_scopes_config')
+    @patch('registry.common.scopes_loader.reload_scopes_config')
     @patch('auth_server.server.get_auth_provider')
-    def test_reload_scopes_success(self, mock_get_provider, mock_load_scopes, auth_env_vars):
+    def test_reload_scopes_success(self, mock_get_provider, mock_reload_scopes, auth_env_vars):
         """Test successful scopes reload."""
         # Arrange
-        mock_load_scopes.return_value = {"group_mappings": {}}
+        mock_reload_scopes.return_value = {"group_mappings": {}}
 
         import base64
 
