@@ -174,6 +174,8 @@ def test_settings(tmp_path: Path) -> Settings:
         embeddings_provider="sentence-transformers",
         embeddings_model_name="all-MiniLM-L6-v2",
         embeddings_model_dimensions=384,
+        documentdb_host="localhost",  # Use localhost for tests
+        documentdb_port=27017,
     )
 
     # Patch path properties to use temp directories
