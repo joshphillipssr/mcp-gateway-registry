@@ -479,6 +479,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+
+@app.on_event("startup")
+async def startup_event():
+    """Load scopes configuration on startup."""
+    global SCOPES_CONFIG
+    try:
+        SCOPES_CONFIG = await reload_scopes_config()
+        logger.info(f"Loaded scopes configuration on startup with {len(SCOPES_CONFIG.get('group_mappings', {}))} group mappings")
+    except Exception as e:
+        logger.error(f"Failed to load scopes configuration on startup: {e}", exc_info=True)
+        # Fall back to empty config
+        SCOPES_CONFIG = {"group_mappings": {}}
+
 # Add metrics collection middleware
 add_auth_metrics_middleware(app)
 
