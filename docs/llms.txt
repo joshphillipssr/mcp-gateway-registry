@@ -7,7 +7,7 @@ The repository provides:
 1. **Centralized Gateway & Registry**: A unified platform for managing and accessing MCP servers across an organization
 2. **Enterprise Authentication**: Multi-provider OAuth 2.0 support with Keycloak, Amazon Cognito, Microsoft Entra ID, and custom identity providers
 3. **Fine-Grained Access Control**: Scope-based authorization at server, method, and individual tool levels
-4. **Dynamic Tool Discovery**: AI-powered semantic search using FAISS and sentence transformers for autonomous tool discovery
+4. **Dynamic Tool Discovery**: AI-powered hybrid search (BM25 + vector k-NN) with flexible embedding providers (local, OpenAI, LiteLLM, Bedrock) for autonomous tool discovery
 5. **Comprehensive Observability**: Dual-path metrics collection with SQLite and OpenTelemetry for detailed analytics
 6. **Production-Ready Deployment**: Docker-based deployment with support for EC2, EKS, and container orchestration
 
@@ -621,17 +621,44 @@ Traditional AI agents are limited to pre-configured tools. Dynamic Tool Discover
 
 ### 5.3. Architecture Components
 
-**Discovery Layer:**
-- **Sentence Transformer**: Neural network for semantic text understanding (all-MiniLM-L6-v2, 384 dimensions)
-- **FAISS Index**: High-performance vector similarity search
-- **Cosine Similarity**: Mathematical measure of semantic similarity
-- **Tool Metadata**: Server information, tool schemas, descriptions
+**IMPORTANT:** Vector search architecture depends on storage backend:
+- **File Backend (LEGACY - DEPRECATED)**: Uses FAISS IndexFlatIP
+- **MongoDB CE/DocumentDB (PRODUCTION)**: Uses hybrid search (BM25 + native vector k-NN)
+
+**Discovery Layer (Modern - DocumentDB/MongoDB):**
+- **Embedding Providers**: Flexible provider selection (sentence-transformers, OpenAI, LiteLLM with 100+ models)
+- **BM25 Text Search**: Keyword matching on server/tool names and descriptions
+- **Vector k-NN Search**: Semantic similarity using embeddings (384-1536 dimensions)
+- **Hybrid Search**: Weighted combination of BM25 and vector search results
+- **Native Vector Indexing**: DocumentDB HNSW or MongoDB application-level k-NN
+- **Tool Metadata**: Server information, tool schemas, descriptions, embeddings
+
+**Discovery Layer (Legacy - File Backend):**
+- **FAISS Index**: In-memory vector similarity search (DEPRECATED)
+- **Sentence Transformer**: all-MiniLM-L6-v2 model (384 dimensions) only
+- **Cosine Similarity**: IndexFlatIP for vector search
+- **Limitations**: File-based, no hybrid search, single embedding provider
+
+**Embedding Provider Options:**
+1. **Sentence Transformers (Local)**: Default all-MiniLM-L6-v2 (384 dimensions), runs locally
+2. **OpenAI Embeddings**: text-embedding-ada-002 (1536 dimensions), requires API key
+3. **LiteLLM**: 100+ embedding models via unified interface (OpenAI, Cohere, Bedrock, etc.)
+4. **Amazon Bedrock Titan**: titan-embed-text-v2:0 (1024 dimensions), native AWS integration
+
+**Hybrid Search Strategy (DocumentDB/MongoDB):**
+```
+Final Score = (BM25_Weight × BM25_Score) + (Vector_Weight × Vector_Score)
+
+Default weights: BM25_Weight=0.3, Vector_Weight=0.7
+```
 
 **Key Technologies:**
-- FAISS (Facebook AI Similarity Search)
-- Sentence Transformers
-- Cosine similarity scoring
+- DocumentDB/MongoDB (native vector search with HNSW indexing)
+- BM25 algorithm for text matching
+- Multiple embedding providers (sentence-transformers, OpenAI, LiteLLM, Bedrock)
+- Hybrid scoring with configurable weights
 - MCP Protocol
+- FAISS (legacy file backend only - DEPRECATED)
 
 ### 5.4. Usage Patterns
 
