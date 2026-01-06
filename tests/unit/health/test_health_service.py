@@ -58,6 +58,7 @@ def mock_server_info():
         "headers": [{"X-Test-Header": "test-value"}],
         "tool_list": [{"name": "test_tool", "description": "A test tool"}],
         "num_tools": 1,
+        "is_enabled": True,
     }
 
 
@@ -279,7 +280,7 @@ async def test_health_service_broadcast_health_update_specific_service(health_se
     service_path = "/test-server"
 
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_server_info.return_value = mock_server_info
+        mock_server_service.get_server_info = AsyncMock(return_value=mock_server_info)
 
         # Add a mock connection
         mock_ws = AsyncMock(spec=WebSocket)
@@ -297,14 +298,15 @@ async def test_health_service_broadcast_health_update_specific_service(health_se
 
 
 @pytest.mark.unit
-def test_health_service_get_cached_health_data(health_service):
+@pytest.mark.asyncio
+async def test_health_service_get_cached_health_data(health_service):
     """Test getting cached health data."""
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_all_servers.return_value = {
+        mock_server_service.get_all_servers = AsyncMock(return_value={
             "/test-server": {"server_name": "test", "proxy_pass_url": "http://test"}
-        }
+        })
 
-        data = health_service._get_cached_health_data()
+        data = await health_service._get_cached_health_data()
 
         assert isinstance(data, dict)
         assert "/test-server" in data
@@ -524,8 +526,8 @@ async def test_health_service_perform_immediate_health_check(health_service, moc
     service_path = "/test-server"
 
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_server_info.return_value = mock_server_info
-        mock_server_service.get_enabled_services.return_value = [service_path]
+        mock_server_service.get_server_info = AsyncMock(return_value=mock_server_info)
+        mock_server_service.get_enabled_services = AsyncMock(return_value=[service_path])
 
         with patch.object(
             health_service,
@@ -587,8 +589,8 @@ async def test_health_service_update_tools_background(health_service, mock_serve
 
         with patch("registry.services.server_service.server_service") as mock_server_service:
             # First call returns server info without tools, second call returns it with tools
-            mock_server_service.get_server_info.return_value = mock_server_info_copy
-            mock_server_service.update_server = Mock()
+            mock_server_service.get_server_info = AsyncMock(return_value=mock_server_info_copy)
+            mock_server_service.update_server = AsyncMock()
 
             with patch("registry.utils.scopes_manager.update_server_scopes", new=AsyncMock()):
                 # Add small sleep to allow background coroutine to run
@@ -600,14 +602,15 @@ async def test_health_service_update_tools_background(health_service, mock_serve
 
 
 @pytest.mark.unit
-def test_health_service_get_all_health_status(health_service, mock_server_info):
+@pytest.mark.asyncio
+async def test_health_service_get_all_health_status(health_service, mock_server_info):
     """Test getting all health status."""
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_all_servers.return_value = {
+        mock_server_service.get_all_servers = AsyncMock(return_value={
             "/test-server": mock_server_info
-        }
+        })
 
-        all_status = health_service.get_all_health_status()
+        all_status = await health_service.get_all_health_status()
 
         assert isinstance(all_status, dict)
         assert "/test-server" in all_status
@@ -620,15 +623,12 @@ def test_health_service_get_service_health_data_fast(health_service, mock_server
     service_path = "/test-server"
     health_service.server_health_status[service_path] = HealthStatus.HEALTHY
 
-    with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.is_service_enabled.return_value = True
+    health_data = health_service._get_service_health_data_fast(
+        service_path, mock_server_info
+    )
 
-        health_data = health_service._get_service_health_data_fast(
-            service_path, mock_server_info
-        )
-
-        assert health_data["status"] == HealthStatus.HEALTHY
-        assert health_data["num_tools"] == 1
+    assert health_data["status"] == HealthStatus.HEALTHY
+    assert health_data["num_tools"] == 1
 
 
 @pytest.mark.unit
@@ -636,14 +636,14 @@ def test_health_service_get_service_health_data_disabled(health_service, mock_se
     """Test getting service health data for disabled service."""
     service_path = "/test-server"
 
-    with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.is_service_enabled.return_value = False
+    # Set is_enabled to False in server_info
+    mock_server_info["is_enabled"] = False
 
-        health_data = health_service._get_service_health_data_fast(
-            service_path, mock_server_info
-        )
+    health_data = health_service._get_service_health_data_fast(
+        service_path, mock_server_info
+    )
 
-        assert health_data["status"] == "disabled"
+    assert health_data["status"] == "disabled"
 
 
 # =============================================================================
@@ -667,7 +667,7 @@ async def test_ws_manager_add_connection_exception(ws_manager, mock_websocket):
 async def test_ws_manager_send_initial_status_optimized_with_cached_data(ws_manager, mock_websocket):
     """Test sending initial status with cached data."""
     with patch("registry.health.service.health_service") as mock_health_service:
-        mock_health_service._get_cached_health_data.return_value = {"test": "data"}
+        mock_health_service._get_cached_health_data = AsyncMock(return_value={"test": "data"})
 
         await ws_manager._send_initial_status_optimized(mock_websocket)
 
@@ -681,7 +681,7 @@ async def test_ws_manager_send_initial_status_optimized_exception(ws_manager, mo
     mock_websocket.send_text.side_effect = Exception("Send failed")
 
     with patch("registry.health.service.health_service") as mock_health_service:
-        mock_health_service._get_cached_health_data.return_value = {"test": "data"}
+        mock_health_service._get_cached_health_data = AsyncMock(return_value={"test": "data"})
         with patch.object(ws_manager, "remove_connection", new=AsyncMock()) as mock_remove:
             await ws_manager._send_initial_status_optimized(mock_websocket)
 
@@ -735,7 +735,7 @@ async def test_ws_manager_broadcast_update_full_status(ws_manager, mock_websocke
     ws_manager.last_broadcast_time = 0
 
     with patch("registry.health.service.health_service") as mock_health_service:
-        mock_health_service._get_cached_health_data.return_value = {"full": "status"}
+        mock_health_service._get_cached_health_data = AsyncMock(return_value={"full": "status"})
 
         with patch.object(ws_manager, "_send_to_connections_optimized", new=AsyncMock()) as mock_send:
             await ws_manager.broadcast_update()
@@ -872,14 +872,15 @@ async def test_health_service_broadcast_health_update_no_server_info(health_serv
     health_service.websocket_manager.connections.add(mock_ws)
 
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_server_info.return_value = None
+        mock_server_service.get_server_info = AsyncMock(return_value=None)
 
         # Should not raise errors
         await health_service.broadcast_health_update(service_path)
 
 
 @pytest.mark.unit
-def test_health_service_get_cached_health_data_with_valid_cache(health_service):
+@pytest.mark.asyncio
+async def test_health_service_get_cached_health_data_with_valid_cache(health_service):
     """Test getting cached health data when cache is still valid."""
     from time import time
 
@@ -887,7 +888,7 @@ def test_health_service_get_cached_health_data_with_valid_cache(health_service):
     health_service._cached_health_data = {"test": "data"}
     health_service._cache_timestamp = time()
 
-    data = health_service._get_cached_health_data()
+    data = await health_service._get_cached_health_data()
 
     assert data == {"test": "data"}
 
@@ -948,7 +949,7 @@ async def test_health_service_run_health_checks_with_exception(health_service, m
 async def test_health_service_perform_health_checks_no_services(health_service):
     """Test performing health checks when no services are enabled."""
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_enabled_services.return_value = []
+        mock_server_service.get_enabled_services = AsyncMock(return_value=[])
 
         # Should not raise errors
         await health_service._perform_health_checks()
@@ -960,10 +961,10 @@ async def test_health_service_perform_health_checks_many_services(health_service
     """Test performing health checks on many services."""
     with patch("registry.services.server_service.server_service") as mock_server_service:
         # Multiple services to trigger debug logging
-        mock_server_service.get_enabled_services.return_value = [
+        mock_server_service.get_enabled_services = AsyncMock(return_value=[
             "/service1", "/service2", "/service3"
-        ]
-        mock_server_service.get_server_info.return_value = mock_server_info
+        ])
+        mock_server_service.get_server_info = AsyncMock(return_value=mock_server_info)
 
         with patch.object(health_service, "_check_single_service", return_value=False):
             await health_service._perform_health_checks()
@@ -974,8 +975,8 @@ async def test_health_service_perform_health_checks_many_services(health_service
 async def test_health_service_perform_health_checks_status_changed(health_service, mock_server_info):
     """Test performing health checks when status changes."""
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_enabled_services.return_value = ["/test-server"]
-        mock_server_service.get_server_info.return_value = mock_server_info
+        mock_server_service.get_enabled_services = AsyncMock(return_value=["/test-server"])
+        mock_server_service.get_server_info = AsyncMock(return_value=mock_server_info)
 
         with patch.object(health_service, "_check_single_service", return_value=True):
             with patch.object(health_service, "broadcast_health_update", new=AsyncMock()) as mock_broadcast:
@@ -992,8 +993,8 @@ async def test_health_service_perform_health_checks_status_changed(health_servic
 async def test_health_service_perform_health_checks_nginx_error(health_service, mock_server_info):
     """Test performing health checks when nginx regeneration fails."""
     with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_enabled_services.return_value = ["/test-server"]
-        mock_server_service.get_server_info.return_value = mock_server_info
+        mock_server_service.get_enabled_services = AsyncMock(return_value=["/test-server"])
+        mock_server_service.get_server_info = AsyncMock(return_value=mock_server_info)
 
         with patch.object(health_service, "_check_single_service", return_value=True):
             with patch.object(health_service, "broadcast_health_update", new=AsyncMock()):
@@ -1313,15 +1314,12 @@ def test_health_service_get_service_health_data_fast_transitioning_from_disabled
     service_path = "/test-server"
     health_service.server_health_status[service_path] = "disabled"
 
-    with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.is_service_enabled.return_value = True
+    health_data = health_service._get_service_health_data_fast(
+        service_path, mock_server_info
+    )
 
-        health_data = health_service._get_service_health_data_fast(
-            service_path, mock_server_info
-        )
-
-        # Should transition to checking
-        assert health_data["status"] == HealthStatus.CHECKING
+    # Should transition to checking
+    assert health_data["status"] == HealthStatus.CHECKING
 
 
 @pytest.mark.unit
@@ -1330,10 +1328,6 @@ def test_health_service_get_service_health_data_legacy_method(health_service, mo
     service_path = "/test-server"
     health_service.server_health_status[service_path] = HealthStatus.HEALTHY
 
-    with patch("registry.services.server_service.server_service") as mock_server_service:
-        mock_server_service.get_server_info.return_value = mock_server_info
-        mock_server_service.is_service_enabled.return_value = True
+    health_data = health_service._get_service_health_data(service_path, mock_server_info)
 
-        health_data = health_service._get_service_health_data(service_path)
-
-        assert health_data["status"] == HealthStatus.HEALTHY
+    assert health_data["status"] == HealthStatus.HEALTHY

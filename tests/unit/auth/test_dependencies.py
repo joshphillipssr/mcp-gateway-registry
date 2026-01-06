@@ -13,7 +13,7 @@ Tests all authentication dependencies including:
 import logging
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import yaml
@@ -31,7 +31,7 @@ from registry.auth.dependencies import (
     get_ui_permissions_for_user,
     get_user_accessible_servers,
     get_user_session_data,
-    load_scopes_config,
+    # load_scopes_config,  # Function does not exist in dependencies.py
     map_cognito_groups_to_scopes,
     nginx_proxied_auth,
     user_can_access_server,
@@ -143,11 +143,46 @@ def sample_scopes_config() -> dict[str, Any]:
 
 @pytest.fixture
 def mock_scopes_config(sample_scopes_config: dict[str, Any], monkeypatch):
-    """Mock SCOPES_CONFIG global variable."""
+    """Mock SCOPES_CONFIG global variable and scope repository."""
+    # Keep existing monkeypatch for backward compatibility
     monkeypatch.setattr(
         "registry.auth.dependencies.SCOPES_CONFIG", sample_scopes_config
     )
-    return sample_scopes_config
+
+    # Create mock repository
+    mock_repo = AsyncMock()
+
+    # Configure get_group_mappings based on sample config
+    async def mock_get_group_mappings(group: str):
+        group_mappings = sample_scopes_config.get("group_mappings", {})
+        return group_mappings.get(group, [])
+
+    # Configure get_ui_scopes based on sample config
+    async def mock_get_ui_scopes(scope: str):
+        ui_scopes = sample_scopes_config.get("UI-Scopes", {})
+        return ui_scopes.get(scope, {})
+
+    # Configure get_server_scopes based on sample config
+    async def mock_get_server_scopes(scope: str):
+        # Check in the main config for scope definitions
+        # The scope config is stored directly as a key in sample_scopes_config
+        # Return the raw config (list of dicts), not extracted server names
+        scope_config = sample_scopes_config.get(scope, [])
+        if scope_config and isinstance(scope_config, list):
+            return scope_config
+        return []
+
+    mock_repo.get_group_mappings.side_effect = mock_get_group_mappings
+    mock_repo.get_ui_scopes.side_effect = mock_get_ui_scopes
+    mock_repo.get_server_scopes.side_effect = mock_get_server_scopes
+
+    # Patch get_scope_repository to return our mock using patch context manager
+    # Since it's imported locally in functions, we need to patch the import
+    with patch(
+        "registry.repositories.factory.get_scope_repository",
+        return_value=mock_repo
+    ):
+        yield sample_scopes_config
 
 
 @pytest.fixture
@@ -328,6 +363,7 @@ class TestGetUserSessionData:
 
 @pytest.mark.unit
 @pytest.mark.auth
+@pytest.mark.skip(reason="load_scopes_config function does not exist in dependencies.py")
 class TestLoadScopesConfig:
     """Tests for load_scopes_config function."""
 
@@ -422,38 +458,41 @@ class TestLoadScopesConfig:
 class TestMapCognitoGroupsToScopes:
     """Tests for map_cognito_groups_to_scopes function."""
 
-    def test_map_admin_group(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_map_admin_group(self, mock_scopes_config: dict[str, Any]):
         """Test mapping admin group to scopes."""
         # Arrange
         groups = ["mcp-registry-admin"]
 
         # Act
-        scopes = map_cognito_groups_to_scopes(groups)
+        scopes = await map_cognito_groups_to_scopes(groups)
 
         # Assert
         assert "mcp-registry-admin" in scopes
         assert "mcp-servers-unrestricted/read" in scopes
         assert "mcp-servers-unrestricted/execute" in scopes
 
-    def test_map_lob1_group(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_map_lob1_group(self, mock_scopes_config: dict[str, Any]):
         """Test mapping LOB1 group to scopes."""
         # Arrange
         groups = ["registry-users-lob1"]
 
         # Act
-        scopes = map_cognito_groups_to_scopes(groups)
+        scopes = await map_cognito_groups_to_scopes(groups)
 
         # Assert
         assert "registry-users-lob1" in scopes
         assert "mcp-registry-admin" not in scopes
 
-    def test_map_multiple_groups(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_map_multiple_groups(self, mock_scopes_config: dict[str, Any]):
         """Test mapping multiple groups removes duplicates."""
         # Arrange
         groups = ["mcp-registry-admin", "registry-users-lob1"]
 
         # Act
-        scopes = map_cognito_groups_to_scopes(groups)
+        scopes = await map_cognito_groups_to_scopes(groups)
 
         # Assert
         assert "mcp-registry-admin" in scopes
@@ -461,24 +500,26 @@ class TestMapCognitoGroupsToScopes:
         # Verify no duplicates
         assert len(scopes) == len(set(scopes))
 
-    def test_map_unknown_group(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_map_unknown_group(self, mock_scopes_config: dict[str, Any]):
         """Test mapping unknown group returns empty list."""
         # Arrange
         groups = ["unknown-group"]
 
         # Act
-        scopes = map_cognito_groups_to_scopes(groups)
+        scopes = await map_cognito_groups_to_scopes(groups)
 
         # Assert
         assert scopes == []
 
-    def test_map_empty_groups(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_map_empty_groups(self, mock_scopes_config: dict[str, Any]):
         """Test mapping empty groups list."""
         # Arrange
         groups = []
 
         # Act
-        scopes = map_cognito_groups_to_scopes(groups)
+        scopes = await map_cognito_groups_to_scopes(groups)
 
         # Assert
         assert scopes == []
@@ -494,13 +535,14 @@ class TestMapCognitoGroupsToScopes:
 class TestGetUIPermissionsForUser:
     """Tests for get_ui_permissions_for_user function."""
 
-    def test_admin_ui_permissions(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_admin_ui_permissions(self, mock_scopes_config: dict[str, Any]):
         """Test admin user gets all UI permissions."""
         # Arrange
         user_scopes = ["mcp-registry-admin"]
 
         # Act
-        permissions = get_ui_permissions_for_user(user_scopes)
+        permissions = await get_ui_permissions_for_user(user_scopes)
 
         # Assert
         assert "list_agents" in permissions
@@ -508,13 +550,14 @@ class TestGetUIPermissionsForUser:
         assert "list_service" in permissions
         assert "all" in permissions["list_service"]
 
-    def test_lob1_ui_permissions(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_lob1_ui_permissions(self, mock_scopes_config: dict[str, Any]):
         """Test LOB1 user gets restricted UI permissions."""
         # Arrange
         user_scopes = ["registry-users-lob1"]
 
         # Act
-        permissions = get_ui_permissions_for_user(user_scopes)
+        permissions = await get_ui_permissions_for_user(user_scopes)
 
         # Assert
         assert "list_agents" in permissions
@@ -522,18 +565,20 @@ class TestGetUIPermissionsForUser:
         assert "/test-automation" in permissions["list_agents"]
         assert "all" not in permissions["list_agents"]
 
-    def test_no_scopes_no_permissions(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_no_scopes_no_permissions(self, mock_scopes_config: dict[str, Any]):
         """Test user with no scopes gets no permissions."""
         # Arrange
         user_scopes = []
 
         # Act
-        permissions = get_ui_permissions_for_user(user_scopes)
+        permissions = await get_ui_permissions_for_user(user_scopes)
 
         # Assert
         assert permissions == {}
 
-    def test_unknown_scope_no_permissions(
+    @pytest.mark.asyncio
+    async def test_unknown_scope_no_permissions(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test unknown scope grants no permissions."""
@@ -541,7 +586,7 @@ class TestGetUIPermissionsForUser:
         user_scopes = ["unknown-scope"]
 
         # Act
-        permissions = get_ui_permissions_for_user(user_scopes)
+        permissions = await get_ui_permissions_for_user(user_scopes)
 
         # Assert
         assert permissions == {}
@@ -703,32 +748,35 @@ class TestGetAccessibleAgentsForUser:
 class TestGetServersForScope:
     """Tests for get_servers_for_scope function."""
 
-    def test_wildcard_scope_returns_wildcard(
+    @pytest.mark.asyncio
+    async def test_wildcard_scope_returns_wildcard(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test wildcard scope returns wildcard server."""
         # Act
-        servers = get_servers_for_scope("mcp-servers-unrestricted/read")
+        servers = await get_servers_for_scope("mcp-servers-unrestricted/read")
 
         # Assert
         assert "*" in servers
 
-    def test_specific_scope_returns_servers(
+    @pytest.mark.asyncio
+    async def test_specific_scope_returns_servers(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test specific scope returns specific servers."""
         # Act
-        servers = get_servers_for_scope("registry-users-lob1")
+        servers = await get_servers_for_scope("registry-users-lob1")
 
         # Assert
         assert "currenttime" in servers
 
-    def test_unknown_scope_returns_empty(
+    @pytest.mark.asyncio
+    async def test_unknown_scope_returns_empty(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test unknown scope returns empty list."""
         # Act
-        servers = get_servers_for_scope("unknown-scope")
+        servers = await get_servers_for_scope("unknown-scope")
 
         # Assert
         assert servers == []
@@ -744,7 +792,8 @@ class TestGetServersForScope:
 class TestUserHasWildcardAccess:
     """Tests for user_has_wildcard_access function."""
 
-    def test_admin_has_wildcard_access(
+    @pytest.mark.asyncio
+    async def test_admin_has_wildcard_access(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test admin user has wildcard access."""
@@ -752,12 +801,13 @@ class TestUserHasWildcardAccess:
         scopes = ["mcp-servers-unrestricted/read"]
 
         # Act
-        has_access = user_has_wildcard_access(scopes)
+        has_access = await user_has_wildcard_access(scopes)
 
         # Assert
         assert has_access is True
 
-    def test_restricted_user_no_wildcard_access(
+    @pytest.mark.asyncio
+    async def test_restricted_user_no_wildcard_access(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test restricted user has no wildcard access."""
@@ -765,12 +815,13 @@ class TestUserHasWildcardAccess:
         scopes = ["registry-users-lob1"]
 
         # Act
-        has_access = user_has_wildcard_access(scopes)
+        has_access = await user_has_wildcard_access(scopes)
 
         # Assert
         assert has_access is False
 
-    def test_no_scopes_no_wildcard_access(
+    @pytest.mark.asyncio
+    async def test_no_scopes_no_wildcard_access(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test user with no scopes has no wildcard access."""
@@ -778,7 +829,7 @@ class TestUserHasWildcardAccess:
         scopes = []
 
         # Act
-        has_access = user_has_wildcard_access(scopes)
+        has_access = await user_has_wildcard_access(scopes)
 
         # Assert
         assert has_access is False
@@ -794,7 +845,8 @@ class TestUserHasWildcardAccess:
 class TestGetUserAccessibleServers:
     """Tests for get_user_accessible_servers function."""
 
-    def test_admin_access_all_servers(
+    @pytest.mark.asyncio
+    async def test_admin_access_all_servers(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test admin user can access all servers (wildcard)."""
@@ -802,12 +854,13 @@ class TestGetUserAccessibleServers:
         scopes = ["mcp-servers-unrestricted/read"]
 
         # Act
-        servers = get_user_accessible_servers(scopes)
+        servers = await get_user_accessible_servers(scopes)
 
         # Assert
         assert "*" in servers
 
-    def test_lob1_access_specific_servers(
+    @pytest.mark.asyncio
+    async def test_lob1_access_specific_servers(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test LOB1 user can access specific servers."""
@@ -815,13 +868,14 @@ class TestGetUserAccessibleServers:
         scopes = ["registry-users-lob1"]
 
         # Act
-        servers = get_user_accessible_servers(scopes)
+        servers = await get_user_accessible_servers(scopes)
 
         # Assert
         assert "currenttime" in servers
         assert "*" not in servers
 
-    def test_multiple_scopes_combine_servers(
+    @pytest.mark.asyncio
+    async def test_multiple_scopes_combine_servers(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test multiple scopes combine accessible servers."""
@@ -832,7 +886,7 @@ class TestGetUserAccessibleServers:
         ]
 
         # Act
-        servers = get_user_accessible_servers(scopes)
+        servers = await get_user_accessible_servers(scopes)
 
         # Assert
         assert "currenttime" in servers
@@ -908,7 +962,8 @@ class TestUserCanModifyServers:
 class TestUserCanAccessServer:
     """Tests for user_can_access_server function."""
 
-    def test_admin_can_access_any_server(
+    @pytest.mark.asyncio
+    async def test_admin_can_access_any_server(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test admin can access any server."""
@@ -921,14 +976,15 @@ class TestUserCanAccessServer:
         # For wildcard access, "*" is in the list, but specific server names won't match
         # This test documents current behavior - wildcard doesn't match arbitrary names
         # User needs to check for "*" in accessible_servers separately
-        accessible_servers = get_user_accessible_servers(scopes)
+        accessible_servers = await get_user_accessible_servers(scopes)
         assert "*" in accessible_servers
 
         # The function doesn't expand wildcard, so specific server check returns False
         # This is expected behavior - caller should check for "*" separately
-        assert not user_can_access_server("any-server", scopes)
+        assert not await user_can_access_server("any-server", scopes)
 
-    def test_user_can_access_allowed_server(
+    @pytest.mark.asyncio
+    async def test_user_can_access_allowed_server(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test user can access allowed server."""
@@ -936,9 +992,10 @@ class TestUserCanAccessServer:
         scopes = ["registry-users-lob1"]
 
         # Act & Assert
-        assert user_can_access_server("currenttime", scopes)
+        assert await user_can_access_server("currenttime", scopes)
 
-    def test_user_cannot_access_disallowed_server(
+    @pytest.mark.asyncio
+    async def test_user_cannot_access_disallowed_server(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test user cannot access disallowed server."""
@@ -946,7 +1003,7 @@ class TestUserCanAccessServer:
         scopes = ["registry-users-lob1"]
 
         # Act & Assert
-        assert not user_can_access_server("other-server", scopes)
+        assert not await user_can_access_server("other-server", scopes)
 
 
 # =============================================================================
@@ -1095,7 +1152,8 @@ class TestAuthWrappers:
 class TestEnhancedAuth:
     """Tests for enhanced_auth dependency."""
 
-    def test_enhanced_auth_traditional_user(
+    @pytest.mark.asyncio
+    async def test_enhanced_auth_traditional_user(
         self,
         mock_signer: URLSafeTimedSerializer,
         mock_scopes_config: dict[str, Any],
@@ -1110,7 +1168,7 @@ class TestEnhancedAuth:
         session_cookie = mock_signer.dumps(session_data)
 
         # Act
-        context = enhanced_auth(session=session_cookie)
+        context = await enhanced_auth(session=session_cookie)
 
         # Assert
         assert context["username"] == "admin"
@@ -1122,7 +1180,8 @@ class TestEnhancedAuth:
         assert context["is_admin"] is True
         assert context["accessible_servers"] == ["*"]
 
-    def test_enhanced_auth_oauth2_user(
+    @pytest.mark.asyncio
+    async def test_enhanced_auth_oauth2_user(
         self,
         mock_signer: URLSafeTimedSerializer,
         mock_scopes_config: dict[str, Any],
@@ -1138,7 +1197,7 @@ class TestEnhancedAuth:
         session_cookie = mock_signer.dumps(session_data)
 
         # Act
-        context = enhanced_auth(session=session_cookie)
+        context = await enhanced_auth(session=session_cookie)
 
         # Assert
         assert context["username"] == "oauth_user"
@@ -1147,11 +1206,12 @@ class TestEnhancedAuth:
         assert context["can_modify_servers"] is False
         assert context["is_admin"] is False
 
-    def test_enhanced_auth_no_session(self):
+    @pytest.mark.asyncio
+    async def test_enhanced_auth_no_session(self):
         """Test enhanced_auth raises 401 without session."""
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            enhanced_auth(session=None)
+            await enhanced_auth(session=None)
 
         assert exc_info.value.status_code == 401
 
@@ -1166,7 +1226,8 @@ class TestEnhancedAuth:
 class TestNginxProxiedAuth:
     """Tests for nginx_proxied_auth dependency."""
 
-    def test_nginx_auth_with_headers(
+    @pytest.mark.asyncio
+    async def test_nginx_auth_with_headers(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test nginx auth with X-User headers."""
@@ -1182,7 +1243,7 @@ class TestNginxProxiedAuth:
         }
 
         # Act
-        context = nginx_proxied_auth(
+        context = await nginx_proxied_auth(
             request=mock_request,
             session=None,
             x_user="nginx_user",
@@ -1197,7 +1258,8 @@ class TestNginxProxiedAuth:
         assert "mcp-servers-unrestricted/read" in context["scopes"]
         assert "mcp-registry-admin" in context["groups"]
 
-    def test_nginx_auth_fallback_to_session(
+    @pytest.mark.asyncio
+    async def test_nginx_auth_fallback_to_session(
         self,
         mock_signer: URLSafeTimedSerializer,
         mock_scopes_config: dict[str, Any],
@@ -1216,7 +1278,7 @@ class TestNginxProxiedAuth:
         session_cookie = mock_signer.dumps(session_data)
 
         # Act
-        context = nginx_proxied_auth(
+        context = await nginx_proxied_auth(
             request=mock_request,
             session=session_cookie,
             x_user=None,
@@ -1229,7 +1291,8 @@ class TestNginxProxiedAuth:
         assert context["username"] == "session_user"
         assert context["auth_method"] == "traditional"
 
-    def test_nginx_auth_oauth2_user_without_admin_scopes(
+    @pytest.mark.asyncio
+    async def test_nginx_auth_oauth2_user_without_admin_scopes(
         self, mock_scopes_config: dict[str, Any]
     ):
         """Test OAuth2 user without admin scopes gets user group."""
@@ -1240,7 +1303,7 @@ class TestNginxProxiedAuth:
         mock_request.headers = {}
 
         # Act
-        context = nginx_proxied_auth(
+        context = await nginx_proxied_auth(
             request=mock_request,
             session=None,
             x_user="oauth_user",
@@ -1279,25 +1342,32 @@ class TestEdgeCases:
 
         assert exc_info.value.status_code == 401
 
-    def test_scopes_deduplication(self, mock_scopes_config: dict[str, Any]):
+    @pytest.mark.asyncio
+    async def test_scopes_deduplication(self, mock_scopes_config: dict[str, Any]):
         """Test that duplicate scopes are removed."""
-        # Arrange - create config with duplicate scopes
+        # Arrange - create mock repository that returns duplicate scopes
+        mock_repo = AsyncMock()
+
+        async def mock_get_group_mappings_with_duplicates(group: str):
+            if group == "test-group":
+                return ["scope1", "scope2", "scope1"]
+            return []
+
+        mock_repo.get_group_mappings.side_effect = mock_get_group_mappings_with_duplicates
+
         with patch(
-            "registry.auth.dependencies.SCOPES_CONFIG",
-            {
-                "group_mappings": {
-                    "test-group": ["scope1", "scope2", "scope1"],
-                }
-            },
+            "registry.repositories.factory.get_scope_repository",
+            return_value=mock_repo
         ):
             # Act
-            scopes = map_cognito_groups_to_scopes(["test-group"])
+            scopes = await map_cognito_groups_to_scopes(["test-group"])
 
             # Assert
             assert len(scopes) == len(set(scopes))  # No duplicates
             assert scopes.count("scope1") == 1
 
-    def test_enhanced_auth_oauth2_no_groups(
+    @pytest.mark.asyncio
+    async def test_enhanced_auth_oauth2_no_groups(
         self,
         mock_signer: URLSafeTimedSerializer,
         mock_scopes_config: dict[str, Any],
@@ -1312,7 +1382,7 @@ class TestEdgeCases:
         session_cookie = mock_signer.dumps(session_data)
 
         # Act
-        context = enhanced_auth(session=session_cookie)
+        context = await enhanced_auth(session=session_cookie)
 
         # Assert
         assert context["username"] == "no_groups_user"
