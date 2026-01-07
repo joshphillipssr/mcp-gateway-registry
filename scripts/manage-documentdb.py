@@ -78,6 +78,7 @@ async def _get_documentdb_connection_string(
             connection_string = (
                 f"mongodb://{username}:{password}@"
                 f"{host}:{port}/{database}?"
+                f"authMechanism=SCRAM-SHA-256&authSource=admin&"
                 f"tls={str(use_tls).lower()}"
             )
 

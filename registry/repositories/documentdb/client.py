@@ -51,11 +51,12 @@ async def get_documentdb_client() -> AsyncIOMotorDatabase:
             connection_string = (
                 f"mongodb://{settings.documentdb_username}:{settings.documentdb_password}@"
                 f"{settings.documentdb_host}:{settings.documentdb_port}/"
-                f"{settings.documentdb_database}"
+                f"{settings.documentdb_database}?"
+                f"authMechanism=SCRAM-SHA-256&authSource=admin"
             )
 
             logger.info(
-                f"Using username/password authentication for DocumentDB "
+                f"Using username/password authentication (SCRAM-SHA-256) for DocumentDB "
                 f"(host: {settings.documentdb_host})"
             )
         else:

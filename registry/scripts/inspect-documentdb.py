@@ -39,7 +39,8 @@ async def inspect_documentdb():
     # Build connection string
     if username and password:
         connection_string = (
-            f"mongodb://{username}:{password}@{host}:{port}/{database}"
+            f"mongodb://{username}:{password}@{host}:{port}/{database}?"
+            f"authMechanism=SCRAM-SHA-256&authSource=admin"
         )
     else:
         connection_string = f"mongodb://{host}:{port}/{database}"

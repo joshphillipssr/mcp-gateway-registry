@@ -31,7 +31,7 @@ async def debug_scopes():
 
     # Build connection string
     if username and password:
-        connection_string = f"mongodb://{username}:{password}@{host}:{port}/{database}"
+        connection_string = f"mongodb://{username}:{password}@{host}:{port}/{database}?authMechanism=SCRAM-SHA-256&authSource=admin"
     else:
         connection_string = f"mongodb://{host}:{port}/{database}"
 
