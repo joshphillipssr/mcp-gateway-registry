@@ -454,11 +454,36 @@ _initialize_keycloak() {
         return 0
     fi
 
-    # Check required environment variables
+    # Try to load INITIAL_ADMIN_PASSWORD from Secrets Manager if not set
     if [[ -z "${INITIAL_ADMIN_PASSWORD:-}" ]]; then
-        log_error "INITIAL_ADMIN_PASSWORD environment variable is required."
-        log_error "This is the password for the 'admin' user in the mcp-gateway realm."
-        log_error "Please set it before running this script:"
+        log_info "INITIAL_ADMIN_PASSWORD not set, attempting to load from Secrets Manager..."
+        
+        # Find the admin password secret by name pattern (mcp-gateway-v2-admin-password-*)
+        local secret_name
+        secret_name=$(aws secretsmanager list-secrets \
+            --region "$AWS_REGION" \
+            --filter Key=name,Values=mcp-gateway-v2-admin-password \
+            --query 'SecretList[0].Name' \
+            --output text 2>/dev/null)
+        
+        if [[ -n "$secret_name" && "$secret_name" != "None" ]]; then
+            INITIAL_ADMIN_PASSWORD=$(aws secretsmanager get-secret-value \
+                --secret-id "$secret_name" \
+                --region "$AWS_REGION" \
+                --query 'SecretString' \
+                --output text 2>/dev/null)
+            
+            if [[ -n "$INITIAL_ADMIN_PASSWORD" ]]; then
+                export INITIAL_ADMIN_PASSWORD
+                log_success "Loaded INITIAL_ADMIN_PASSWORD from Secrets Manager ($secret_name)"
+            fi
+        fi
+    fi
+
+    # Final check - if still not set, error out
+    if [[ -z "${INITIAL_ADMIN_PASSWORD:-}" ]]; then
+        log_error "INITIAL_ADMIN_PASSWORD could not be loaded from Secrets Manager."
+        log_error "Either set it manually or ensure the secret exists:"
         log_error "  export INITIAL_ADMIN_PASSWORD='YourSecurePassword123'"
         STEPS_FAILED=$((STEPS_FAILED + 1))
         return 1
