@@ -463,4 +463,6 @@ const AgentCard: React.FC<AgentCardProps> = React.memo(({
   );
 });
 
+AgentCard.displayName = 'AgentCard';
+
 export default AgentCard;

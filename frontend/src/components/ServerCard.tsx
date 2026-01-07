@@ -465,4 +465,6 @@ const ServerCard: React.FC<ServerCardProps> = React.memo(({ server, onToggle, on
   );
 });
 
+ServerCard.displayName = 'ServerCard';
+
 export default ServerCard;
