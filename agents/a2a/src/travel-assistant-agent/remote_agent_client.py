@@ -123,30 +123,30 @@ class RemoteAgentCache:
         self._cache[agent_id] = agent_client
         logger.info(f"Added agent to cache: {agent_id}")
     
-    def cache_discovered_agents(self, agents: List[DiscoveredAgent], auth_token: Optional[str] = None) -> dict[str, RemoteAgentClient]: 
+    def cache_discovered_agents(self, agents: List[DiscoveredAgent], auth_token: Optional[str] = None) -> dict[str, RemoteAgentClient]:
         newly_cached = {}
-        
+
         for agent in agents:
             agent_id = agent.path
-            
+
             # Skip if already cached
             if agent_id in self._cache:
                 logger.info(f"Agent {agent_id} already cached, skipping")
                 continue
-            
+
             # Create and cache the remote agent client
             agent_client = RemoteAgentClient(
                 agent_url=agent.url,
-                agent_name=agent.agent_name,
+                agent_name=agent.name,
                 agent_id=agent_id,
-                skills=agent.skills,
+                skills=agent.skill_names,
                 auth_token=auth_token,
             )
-            
+
             self._cache[agent_id] = agent_client
             newly_cached[agent_id] = agent_client
-            logger.info(f"Cached agent: {agent.agent_name} (ID: {agent_id})")
-        
+            logger.info(f"Cached agent: {agent.name} (ID: {agent_id})")
+
         logger.info(f"Cached {len(newly_cached)} new agents. Total in cache: {len(self._cache)}")
         return newly_cached
     

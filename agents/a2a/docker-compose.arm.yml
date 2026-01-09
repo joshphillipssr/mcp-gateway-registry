@@ -21,6 +21,7 @@ services:
       # Keycloak M2M authentication for agent discovery
       - KEYCLOAK_URL=${KEYCLOAK_URL:-http://keycloak:8080}
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-mcp-gateway}
+      - REGISTRY_JWT_TOKEN=${REGISTRY_JWT_TOKEN:-}
       - M2M_CLIENT_ID=${TRAVEL_AGENT_M2M_CLIENT_ID:-agent-test-agent-m2m}
       - M2M_CLIENT_SECRET=${TRAVEL_AGENT_M2M_CLIENT_SECRET}
       - MCP_REGISTRY_URL=${MCP_REGISTRY_URL:-http://registry}
@@ -55,6 +56,7 @@ services:
       # Keycloak M2M authentication for agent discovery
       - KEYCLOAK_URL=${KEYCLOAK_URL:-http://keycloak:8080}
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-mcp-gateway}
+      - REGISTRY_JWT_TOKEN=${REGISTRY_JWT_TOKEN:-}
       - M2M_CLIENT_ID=${FLIGHT_BOOKING_M2M_CLIENT_ID:-agent-test-agent-m2m}
       - M2M_CLIENT_SECRET=${FLIGHT_BOOKING_M2M_CLIENT_SECRET}
       - MCP_REGISTRY_URL=${MCP_REGISTRY_URL:-http://registry}

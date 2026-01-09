@@ -40,6 +40,15 @@ def get_registry_client() -> Optional[RegistryDiscoveryClient]:
     """
     env = get_env()
 
+    # Option 1: Use direct JWT token if provided
+    if env.registry_jwt_token:
+        logger.info("Creating RegistryDiscoveryClient with direct JWT token")
+        return RegistryDiscoveryClient(
+            registry_url=env.mcp_registry_url,
+            jwt_token=env.registry_jwt_token,
+        )
+
+    # Option 2: Use M2M client credentials
     if not env.m2m_client_secret:
         logger.warning("M2M_CLIENT_SECRET not configured, discovery will not work")
         return None
@@ -48,7 +57,7 @@ def get_registry_client() -> Optional[RegistryDiscoveryClient]:
         logger.warning("M2M_CLIENT_ID not configured, discovery will not work")
         return None
 
-    logger.info("Creating RegistryDiscoveryClient")
+    logger.info("Creating RegistryDiscoveryClient with M2M credentials")
     return RegistryDiscoveryClient(
         registry_url=env.mcp_registry_url,
         keycloak_url=env.keycloak_url,

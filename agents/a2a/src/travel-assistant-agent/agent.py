@@ -182,10 +182,10 @@ async def discover_remote_agents(query: str, max_results: int = 5) -> str:
             "agents": [
                 {
                     "id": agent.path,
-                    "name": agent.agent_name,
+                    "name": agent.name,
                     "description": agent.description,
                     "url": agent.url,
-                    "skills": agent.skills,
+                    "skills": agent.skill_names,
                     "tags": agent.tags,
                     "relevance_score": agent.relevance_score,
                     "trust_level": agent.trust_level,

@@ -21,21 +21,28 @@ class RegistryDiscoveryClient:
     def __init__(
         self,
         registry_url: str,
-        keycloak_url: str,
-        client_id: str,
-        client_secret: str,
+        keycloak_url: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
         realm: str = "mcp-gateway",
+        jwt_token: Optional[str] = None,
     ) -> None:
 
         self.registry_url = registry_url.rstrip("/")
-        self.keycloak_url = keycloak_url.rstrip("/")
+        self.keycloak_url = keycloak_url.rstrip("/") if keycloak_url else None
         self.client_id = client_id
         self.client_secret = client_secret
         self.realm = realm
         self.token: Optional[str] = None
         self.token_expires_at: float = 0
 
-        logger.info(f"RegistryDiscoveryClient initialized for {registry_url}")
+        # Direct JWT token (bypasses M2M authentication)
+        self.direct_jwt_token = jwt_token
+
+        if jwt_token:
+            logger.info(f"RegistryDiscoveryClient initialized with direct JWT token for {registry_url}")
+        else:
+            logger.info(f"RegistryDiscoveryClient initialized with M2M credentials for {registry_url}")
 
     async def _get_token(self) -> str:
         """Get or refresh JWT token from Keycloak using client credentials flow.
@@ -46,6 +53,11 @@ class RegistryDiscoveryClient:
         Raises:
             Exception: If token acquisition fails
         """
+        # If direct JWT token is provided, use it directly
+        if self.direct_jwt_token:
+            logger.debug("Using direct JWT token")
+            return self.direct_jwt_token
+
         current_time = time.time()
         if self.token and current_time < self.token_expires_at - 60:
             logger.debug("Using cached token")
