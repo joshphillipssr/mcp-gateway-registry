@@ -5,7 +5,7 @@ requires-python = "==3.12.*"
 [[package]]
 name = "a2a"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "fastapi" },
