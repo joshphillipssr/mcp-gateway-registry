@@ -231,8 +231,16 @@ class DocumentDBSearchRepository(SearchRepositoryBase):
         if tags:
             text_parts.append("Tags: " + ", ".join(tags))
 
+        # Include capability keys (feature flags like "streaming")
         if agent_card.capabilities:
             text_parts.append("Capabilities: " + ", ".join(agent_card.capabilities))
+
+        # Include skill names and descriptions for better semantic search
+        if agent_card.skills:
+            for skill in agent_card.skills:
+                text_parts.append(skill.name)
+                if skill.description:
+                    text_parts.append(skill.description)
 
         text_for_embedding = " ".join(filter(None, text_parts))
 
@@ -369,27 +377,40 @@ class DocumentDBSearchRepository(SearchRepositoryBase):
                 # Token-based matching for text boost
                 # Check path match first (highest priority - user explicitly named the server)
                 path = doc.get("path", "")
+                server_name_matched = False
                 if path and _tokens_match_text(query_tokens, path):
                     text_boost += 5.0
+                    server_name_matched = True
                 if name and _tokens_match_text(query_tokens, name):
                     text_boost += 3.0
+                    server_name_matched = True
                 if description and _tokens_match_text(query_tokens, description):
                     text_boost += 2.0
                 # Check if any token matches any tag
                 if tags and any(_tokens_match_text(query_tokens, tag) for tag in tags):
                     text_boost += 1.5
+
                 # Check if any token matches any tool name or description
                 for tool in tools:
                     tool_name = tool.get("name", "")
                     tool_desc = tool.get("description") or ""
-                    if _tokens_match_text(query_tokens, tool_name) or \
-                       _tokens_match_text(query_tokens, tool_desc):
+                    tool_matched = _tokens_match_text(query_tokens, tool_name) or \
+                        _tokens_match_text(query_tokens, tool_desc)
+
+                    if tool_matched:
                         text_boost += 1.0
-                        # Store tool reference for frontend (schema is in tools[] array)
                         matching_tools.append({
                             "tool_name": tool_name,
                             "description": tool_desc,
-                            "relevance_score": 1.0,  # Tool matched, full score
+                            "relevance_score": 1.0,
+                            "match_context": tool_desc or f"Tool: {tool_name}"
+                        })
+                    elif server_name_matched:
+                        # If server name/path matched, include all tools with base score
+                        matching_tools.append({
+                            "tool_name": tool_name,
+                            "description": tool_desc,
+                            "relevance_score": 0.8,
                             "match_context": tool_desc or f"Tool: {tool_name}"
                         })
 
@@ -894,6 +915,19 @@ class DocumentDBSearchRepository(SearchRepositoryBase):
                     }
                     grouped_results["tools"].append(result_entry)
                     tool_count += 1
+
+            # Sort each group by relevance_score (descending) to ensure highest matches
+            # appear first. This is needed because the DB sorts by text_boost only,
+            # but relevance_score combines both vector similarity and text boost.
+            grouped_results["servers"].sort(
+                key=lambda x: x.get("relevance_score", 0), reverse=True
+            )
+            grouped_results["tools"].sort(
+                key=lambda x: x.get("relevance_score", 0), reverse=True
+            )
+            grouped_results["agents"].sort(
+                key=lambda x: x.get("relevance_score", 0), reverse=True
+            )
 
             logger.info(
                 f"Hybrid search for '{query}' returned "
