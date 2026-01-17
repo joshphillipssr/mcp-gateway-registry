@@ -1302,23 +1302,28 @@ async def generate_user_token(
                 headers={"Connection": "close"}
             )
 
-        # Get Keycloak M2M token using client credentials flow
+        # Get M2M token using client credentials flow (supports both Keycloak and Entra ID)
         try:
             auth_provider = get_auth_provider()
             provider_info = auth_provider.get_provider_info()
+            provider_type = provider_info.get('provider_type', 'unknown')
 
-            if provider_info.get('provider_type') != 'keycloak':
+            if provider_type == 'keycloak':
+                # Request token from Keycloak using M2M client credentials
+                # Note: We don't pass user's requested scopes to Keycloak because the M2M
+                # client has its own configured scopes. The returned token will have scopes
+                # based on the M2M client configuration in Keycloak.
+                token_data = auth_provider.get_m2m_token(scope="openid email profile")
+            elif provider_type == 'entra':
+                # Request token from Entra ID using client credentials
+                # The scope uses the default format for Entra ID
+                token_data = auth_provider.get_m2m_token()
+            else:
                 raise HTTPException(
                     status_code=500,
-                    detail="Token generation requires Keycloak provider",
+                    detail=f"Token generation not supported for provider: {provider_type}",
                     headers={"Connection": "close"}
                 )
-
-            # Request token from Keycloak using M2M client credentials
-            # Note: We don't pass user's requested scopes to Keycloak because the M2M
-            # client has its own configured scopes. The returned token will have scopes
-            # based on the M2M client configuration in Keycloak.
-            token_data = auth_provider.get_m2m_token(scope="openid email profile")
 
             access_token = token_data.get("access_token")
             refresh_token_value = token_data.get("refresh_token")
@@ -1327,12 +1332,12 @@ async def generate_user_token(
             scope = token_data.get("scope", "openid email profile")
 
             if not access_token:
-                raise ValueError("No access token returned from Keycloak")
+                raise ValueError(f"No access token returned from {provider_type}")
 
             current_time = int(time.time())
 
             logger.info(
-                f"Generated Keycloak M2M token for user '{hash_username(username)}' "
+                f"Generated {provider_type} M2M token for user '{hash_username(username)}' "
                 f"with scopes: {requested_scopes}, expires in {expires_in} seconds"
             )
 
@@ -1347,10 +1352,10 @@ async def generate_user_token(
             )
 
         except ValueError as e:
-            logger.error(f"Keycloak token generation failed: {e}")
+            logger.error(f"Token generation failed: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to generate token from Keycloak: {e}",
+                detail=f"Failed to generate token: {e}",
                 headers={"Connection": "close"}
             )
 

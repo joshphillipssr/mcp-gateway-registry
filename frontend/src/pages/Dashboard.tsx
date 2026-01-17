@@ -828,6 +828,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeFilter = 'all' }) => {
                     onToggle={handleToggleAgent}
                     onEdit={handleEditAgent}
                     canModify={user?.can_modify_servers || false}
+                    canHealthCheck={hasUiPermission('health_check_agent', agent.path)}
+                    canToggle={hasUiPermission('toggle_agent', agent.path)}
                     onRefreshSuccess={refreshData}
                     onShowToast={showToast}
                     onAgentUpdate={handleAgentUpdate}
@@ -909,6 +911,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeFilter = 'all' }) => {
                         onToggle={handleToggleAgent}
                         onEdit={handleEditAgent}
                         canModify={user?.can_modify_servers || false}
+                        canHealthCheck={hasUiPermission('health_check_agent', agent.path)}
+                        canToggle={hasUiPermission('toggle_agent', agent.path)}
                         onRefreshSuccess={refreshData}
                         onShowToast={showToast}
                         onAgentUpdate={handleAgentUpdate}

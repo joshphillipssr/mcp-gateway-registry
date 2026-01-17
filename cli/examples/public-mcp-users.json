@@ -1,6 +1,6 @@
 {
   "scope_name": "public-mcp-users",
-  "description": "Users with access to public MCP servers (context7, cloudflare-docs)",
+  "description": "Users with access to public MCP servers (context7, cloudflare-docs) and flight-booking agent",
   "server_access": [
     {
       "server": "context7",
@@ -34,13 +34,29 @@
     },
     {
       "server": "api",
-      "methods": ["initialize", "GET", "POST", "servers", "agents", "search", "rating", "tools"],
+      "methods": ["initialize", "GET", "POST", "servers", "agents", "search", "rating", "tools", "tokens"],
       "tools": []
+    },
+    {
+      "agents": {
+        "actions": [
+          {
+            "action": "list_agents",
+            "resources": ["/flight-booking"]
+          },
+          {
+            "action": "get_agent",
+            "resources": ["/flight-booking"]
+          }
+        ]
+      }
     }
   ],
-  "group_mappings": ["public-mcp-users"],
+  "group_mappings": ["public-mcp-users", "5f605d68-06bc-4208-b992-bb378eee12c5"],
   "ui_permissions": {
-    "list_service": ["all"]
+    "list_service": ["all"],
+    "list_agents": ["/flight-booking"],
+    "get_agent": ["/flight-booking"]
   },
   "create_in_idp": true
 }
