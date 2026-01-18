@@ -45,7 +45,7 @@ base_domain          = "mycorp.click"
 # root_domain = "example.com"
 
 # ============================================================================
-# KEYCLOAK CREDENTIALS (REQUIRED)
+# KEYCLOAK CREDENTIALS (used when entra_enabled = false)
 # ============================================================================
 
 # Keycloak admin credentials
@@ -212,12 +212,15 @@ session_cookie_domain = ""
 # documentdb_shard_count = 1
 
 # ============================================================================
-# MICROSOFT ENTRA ID CONFIGURATION (Alternative to Keycloak)
+# AUTHENTICATION PROVIDER CONFIGURATION
 # ============================================================================
 
-# To use Microsoft Entra ID instead of Keycloak for authentication:
-# 1. Set AUTH_PROVIDER=entra in your environment
-# 2. Configure the variables below
+# Microsoft Entra ID Configuration (Alternative to Keycloak)
+# Set entra_enabled = true to use Microsoft Entra ID instead of Keycloak
+# When enabled, AUTH_PROVIDER is automatically set to "entra"
+
+# Enable Microsoft Entra ID authentication (default: false, uses Keycloak)
+# entra_enabled = true
 
 # Entra ID Tenant ID (Directory ID from Azure Portal)
 # entra_tenant_id = "your-tenant-id-guid"
