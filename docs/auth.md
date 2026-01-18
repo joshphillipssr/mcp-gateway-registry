@@ -2,6 +2,13 @@
 
 The MCP Gateway Registry provides enterprise-ready authentication and authorization using industry-standard OAuth 2.0 flows with fine-grained access control.
 
+## Related Design Documentation
+
+For architectural details and design decisions, see:
+- [Multi-Provider IdP Support](design/idp-provider-support.md) - Architecture for supporting multiple identity providers (Keycloak, Entra ID)
+- [Authentication Design](design/authentication-design.md) - Detailed auth flows for human users, programmatic access, and M2M workloads
+- [Microsoft Entra ID Integration](entra.md) - Entra ID-specific setup and configuration
+
 ## Quick Navigation
 
 **I want to...**
