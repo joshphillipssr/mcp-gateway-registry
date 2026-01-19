@@ -550,6 +550,8 @@ You should see the Keycloak login page. You can log in with:
 
 ### Build and Start All Services
 
+**Important**: After starting services, you MUST complete [Section 7: Storage Backend Setup](#7-storage-backend-setup-optional) before using JWT token generation from the UI. The MongoDB initialization loads required scopes that enable JWT token creation.
+
 ```bash
 # Return to project directory
 cd ~/workspace/mcp-gateway-registry
@@ -663,9 +665,11 @@ docker exec mcp-mongodb mongosh --eval "use mcp_registry; show collections"
 # - mcp_security_scans_default
 # - mcp_federation_config_default
 
-# 6. Restart registry to use MongoDB backend
-docker compose restart registry
+# 6. Restart auth-server and registry to load scopes and use MongoDB backend
+docker compose restart auth-server registry
 ```
+
+**Important**: The auth-server must be restarted after mongodb-init to load the JWT token scopes from MongoDB. Without this step, JWT token generation from the UI will fail with "no scopes configured" error.
 
 **MongoDB CE Features:**
 - Replica set configuration for production-like testing
