@@ -558,6 +558,8 @@ export KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 > - **Docker**: Services run on privileged ports (`http://localhost`, `https://localhost`)
 > - **Podman**: Services run on non-privileged ports (`http://localhost:8080`, `https://localhost:8443`)
 
+Once the build completes and you see the container logs streaming, you can press **Ctrl+C** to exit the log view and continue with the next steps. The containers will continue running in the background.
+
 Wait for all services to start (2-3 minutes), then verify:
 ```bash
 docker compose ps
@@ -566,12 +568,30 @@ docker compose ps
 
 ---
 
-#### Step 6: Initialize Keycloak
+#### Step 6: Initialize MongoDB
+
+Initialize the MongoDB database with required collections, indexes, and default scopes:
+
+```bash
+# Run the MongoDB initialization container
+docker compose up mongodb-init
+
+# Verify collections were created
+docker exec mcp-mongodb mongosh --eval "use mcp_registry; show collections"
+# Should show: mcp_servers_default, mcp_agents_default, mcp_scopes_default, etc.
+
+# Restart auth-server to load the new scopes
+docker compose restart auth-server
+```
+
+---
+
+#### Step 7: Initialize Keycloak
 
 <details>
 <summary><strong>Click to expand: Complete Keycloak setup instructions</strong></summary>
 
-**6a. Wait for Keycloak to be ready:**
+**7a. Wait for Keycloak to be ready:**
 ```bash
 # Monitor logs until you see "Keycloak started"
 docker compose logs -f keycloak
@@ -582,7 +602,7 @@ curl http://localhost:8080/realms/master
 # Should return JSON with realm information
 ```
 
-**6b. Disable SSL for master realm (required for HTTP access):**
+**7b. Disable SSL for master realm (required for HTTP access):**
 ```bash
 ADMIN_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -597,13 +617,13 @@ curl -X PUT "http://localhost:8080/admin/realms/master" \
     -d '{"sslRequired": "none"}'
 ```
 
-**6c. Initialize Keycloak realm and clients:**
+**7c. Initialize Keycloak realm and clients:**
 ```bash
 chmod +x keycloak/setup/init-keycloak.sh
 ./keycloak/setup/init-keycloak.sh
 ```
 
-**6d. Disable SSL for application realm:**
+**7d. Disable SSL for application realm:**
 ```bash
 ADMIN_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -618,13 +638,13 @@ curl -X PUT "http://localhost:8080/admin/realms/mcp-gateway" \
     -d '{"sslRequired": "none"}'
 ```
 
-**6e. Retrieve and save client credentials:**
+**7e. Retrieve and save client credentials:**
 ```bash
 chmod +x keycloak/setup/get-all-client-credentials.sh
 ./keycloak/setup/get-all-client-credentials.sh
 ```
 
-**6f. Update .env with client secrets:**
+**7f. Update .env with client secrets:**
 ```bash
 # View the retrieved secrets
 cat .oauth-tokens/keycloak-client-secrets.txt
@@ -634,17 +654,18 @@ nano .env
 # Find and update: KEYCLOAK_CLIENT_SECRET and KEYCLOAK_M2M_CLIENT_SECRET
 ```
 
-**6g. Restart containers to apply new credentials:**
+**7g. Recreate containers to apply new credentials:**
 ```bash
-# Restart auth-server and registry to pick up the updated .env values
-docker compose restart auth-server registry
+# Recreate containers to pick up the updated .env values
+./build_and_run.sh --prebuilt
 ```
+Once logs are streaming, press **Ctrl+C** to exit - containers will continue running.
 
 </details>
 
 ---
 
-#### Step 7: Set Up Users and Service Accounts
+#### Step 8: Set Up Users and Service Accounts
 
 ```bash
 chmod +x ./cli/bootstrap_user_and_m2m_setup.sh
@@ -662,7 +683,7 @@ All credentials are saved to `.oauth-tokens/` directory.
 
 ---
 
-#### Step 8: Create AI Agent Account (Optional)
+#### Step 9: Create AI Agent Account (Optional)
 
 <details>
 <summary><strong>Click to expand: Create additional agent accounts</strong></summary>
@@ -688,7 +709,7 @@ chmod +x keycloak/setup/setup-agent-service-account.sh
 
 ---
 
-#### Step 9: Access the Registry
+#### Step 10: Access the Registry
 
 <details>
 <summary><strong>Click to expand: Remote Access Options (EC2, Port Forwarding, etc.)</strong></summary>
@@ -747,31 +768,81 @@ Login with:
 
 ---
 
-#### Step 10: Test the Setup
+#### Step 11: Register Example Servers and Agents (Optional)
 
-<details>
-<summary><strong>Click to expand: Test with Python MCP client</strong></summary>
+To register example MCP servers and A2A agents, first get a JWT token from the Registry UI:
+
+1. In the Registry UI, click the **"Get JWT Token"** button (top-left corner)
+2. In the popup, click **"Copy JSON"** to copy the full token JSON
+3. Save it to a `.token` file:
 
 ```bash
-# Source agent credentials
-source .oauth-tokens/agent-test-agent-m2m.env
-
-# Test basic connectivity
-uv run python cli/mcp_client.py ping
-
-# Expected output:
-# M2M authentication successful
-# Session established: ...
-# {"jsonrpc": "2.0", "id": 2, "result": {}}
-
-# List available tools
-uv run python cli/mcp_client.py list
-
-# Test calling a tool
-uv run python cli/mcp_client.py call --tool intelligent_tool_finder --args '{"natural_language_query":"get current time in New York"}'
+# Create .token file with the copied JSON
+# Note: .token is already in .gitignore so it won't be committed to the repo
+cat > .token << 'EOF'
+<paste the copied JSON here>
+EOF
 ```
 
-</details>
+Then register servers and agents using the Registry Management CLI:
+
+> **Note:** Registration includes automatic security scanning using [Cisco AI Defense MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for servers and [Cisco AI Defense A2A Scanner](https://github.com/cisco-ai-defense/a2a-scanner) for agents. Each registration may take a few seconds while the security scan completes.
+
+```bash
+# Register MCP servers
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    register --config cli/examples/mcpgw.json
+
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    register --config cli/examples/cloudflare-docs-server-config.json
+
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    register --config cli/examples/context7-server-config.json
+
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    register --config cli/examples/currenttime.json
+
+# Register A2A agents
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    agent-register --config cli/examples/travel_assistant_agent_card.json
+
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    agent-register --config cli/examples/flight_booking_agent_card.json
+
+# Verify registrations
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token list
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token agent-list
+```
+
+Servers and agents are registered as **disabled** by default. Refresh the Registry UI to see them, then enable them using the toggle controls on each server/agent card.
+
+---
+
+#### Step 12: Test the Setup
+
+Test the registry using the Registry Management CLI:
+
+```bash
+# List registered servers
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token list
+
+# List registered agents
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token agent-list
+
+# Search for servers by natural language
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    server-search --query "documentation tools"
+
+# Search for agents by natural language
+uv run python api/registry_management.py --registry-url http://localhost --token-file .token \
+    agent-search --query "travel booking"
+
+# Invoke a tool on an MCP server (e.g., get current time)
+# This exercises the "Gateway" functionality - the request is routed through the
+# MCP Gateway to the backend currenttime server, demonstrating centralized access
+uv run python cli/mcp_client.py --url http://localhost/currenttime/mcp --token-file .token \
+    call --tool current_time_by_timezone --args '{"tz_name": "America/New_York"}'
+```
 
 ---
 
