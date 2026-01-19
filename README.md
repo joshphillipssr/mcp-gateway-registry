@@ -407,86 +407,377 @@ There are 3 options for setting up the MCP Gateway & Registry:
 
 ### Option A: Pre-built Images (Instant Setup)
 
-Get running in under 2 minutes with pre-built containers:
+Get running with pre-built containers. All instructions are included below - no need to reference other files.
 
-**Step 1: Clone and setup**
+---
+
+#### Step 1: Prerequisites
+
+<details>
+<summary><strong>Click to expand: Install Docker, Node.js, Python, and UV</strong></summary>
+
+**Install Docker and Docker Compose:**
+```bash
+# Install Docker
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Add Docker's official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Add Docker repository
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+
+# Install Docker Engine
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Add user to docker group (logout/login required, or use newgrp)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify installation
+docker --version
+docker compose version
+```
+
+**Install Node.js 20.x:**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node --version  # Should show v20.x.x
+```
+
+**Install Python and UV:**
+```bash
+sudo apt-get install -y python3.12 python3.12-venv python3-pip
+
+# Install UV package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+uv --version
+```
+
+**Install additional tools:**
+```bash
+sudo apt-get install -y git jq curl wget
+```
+
+</details>
+
+---
+
+#### Step 2: Clone and Setup
+
 ```bash
 git clone https://github.com/agentic-community/mcp-gateway-registry.git
 cd mcp-gateway-registry
 cp .env.example .env
+
+# Setup Python virtual environment
+uv sync
+source .venv/bin/activate
 ```
 
-**Step 2: Download embeddings model**
-Download the required sentence-transformers model to the shared models directory using the [HuggingFace CLI](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli) (`pip install -U huggingface_hub`):
+---
+
+#### Step 3: Download Embeddings Model
+
+Download the required sentence-transformers model using the [HuggingFace CLI](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli):
 ```bash
+# Install huggingface_hub if not already installed
+uv pip install -U huggingface_hub
+
+# Download the model
 hf download sentence-transformers/all-MiniLM-L6-v2 --local-dir ${HOME}/mcp-gateway/models/all-MiniLM-L6-v2
 ```
 
-**Step 3: Configure environment**
-Complete: **[Initial Environment Configuration](docs/complete-setup-guide.md#initial-environment-configuration)** - Configure domains, passwords, and authentication
+---
+
+#### Step 4: Configure Environment
+
+<details>
+<summary><strong>Click to expand: Edit .env file with your settings</strong></summary>
+
+Edit the `.env` file with your preferred editor:
+```bash
+nano .env
+```
+
+**Required changes:**
+```bash
+# Authentication provider (do not change)
+AUTH_PROVIDER=keycloak
+
+# Set secure passwords (CHANGE THESE!)
+KEYCLOAK_ADMIN_PASSWORD=YourSecureAdminPassword123!
+INITIAL_ADMIN_PASSWORD=YourSecureAdminPassword123!  # MUST match KEYCLOAK_ADMIN_PASSWORD
+KEYCLOAK_DB_PASSWORD=SecureKeycloakDB123!
+
+# Session cookie security (CRITICAL for local development)
+# For HTTP access (localhost): MUST be false
+SESSION_COOKIE_SECURE=false
+
+# For HTTPS access (production): set to true
+# SESSION_COOKIE_SECURE=true
+
+# Leave these as defaults
+KEYCLOAK_URL=http://localhost:8080
+KEYCLOAK_REALM=mcp-gateway
+KEYCLOAK_CLIENT_ID=mcp-gateway-client
+```
+
+**Generate and set SECRET_KEY:**
+```bash
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+sed -i "s/^#*\s*SECRET_KEY=.*/SECRET_KEY=$SECRET_KEY/" .env
+echo "Generated SECRET_KEY: $SECRET_KEY"
+```
+
+Save and exit (Ctrl+X, then Y, then Enter if using nano).
+
+</details>
+
+**Set environment variables for deployment:**
 ```bash
 export DOCKERHUB_ORG=mcpgateway
+source .env
+export KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 ```
 
-**Step 4: Deploy with pre-built images**
-Our service can be deployed with two platforms for pre-built images: Docker and Podman. 
+---
 
-**With Docker (default):**
+#### Step 5: Deploy with Pre-built Images
+
 ```bash
 ./build_and_run.sh --prebuilt
-```
-
-**With Podman (rootless, macOS (but NOT Apple Silicon) friendly):**
-```bash
-./build_and_run.sh --prebuilt --podman
-
-# If running on macOS Apple Silicon, remove the --prebuilt flag (more details in Podman option below) 
-./build_and_run.sh --podman # For Apple Silicon 
 ```
 
 > **Port Differences:**
 > - **Docker**: Services run on privileged ports (`http://localhost`, `https://localhost`)
 > - **Podman**: Services run on non-privileged ports (`http://localhost:8080`, `https://localhost:8443`)
-> - All internal service ports remain the same (Registry: 7860, Auth: 8888, etc.)
 
-For detailed information about all Docker images used with `--prebuilt`, see [Pre-built Images Documentation](docs/prebuilt-images.md).
-
-**Step 5: Initialize Keycloak**
-Complete: **[Initialize Keycloak Configuration](docs/complete-setup-guide.md#initialize-keycloak-configuration)** - Set up identity provider and security policies
-
-**Step 5.5: Set up users and service accounts**
-Run the bootstrap script to create default users and M2M service accounts:
+Wait for all services to start (2-3 minutes), then verify:
 ```bash
+docker compose ps
+# All services should show as "Up"
+```
+
+---
+
+#### Step 6: Initialize Keycloak
+
+<details>
+<summary><strong>Click to expand: Complete Keycloak setup instructions</strong></summary>
+
+**6a. Wait for Keycloak to be ready:**
+```bash
+# Monitor logs until you see "Keycloak started"
+docker compose logs -f keycloak
+# Press Ctrl+C when you see "Keycloak 25.x.x started"
+
+# Or check health endpoint
+curl http://localhost:8080/realms/master
+# Should return JSON with realm information
+```
+
+**6b. Disable SSL for master realm (required for HTTP access):**
+```bash
+ADMIN_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=${KEYCLOAK_ADMIN}" \
+    -d "password=${KEYCLOAK_ADMIN_PASSWORD}" \
+    -d "grant_type=password" \
+    -d "client_id=admin-cli" | \
+    jq -r '.access_token') && \
+curl -X PUT "http://localhost:8080/admin/realms/master" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"sslRequired": "none"}'
+```
+
+**6c. Initialize Keycloak realm and clients:**
+```bash
+chmod +x keycloak/setup/init-keycloak.sh
+./keycloak/setup/init-keycloak.sh
+```
+
+**6d. Disable SSL for application realm:**
+```bash
+ADMIN_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=${KEYCLOAK_ADMIN}" \
+    -d "password=${KEYCLOAK_ADMIN_PASSWORD}" \
+    -d "grant_type=password" \
+    -d "client_id=admin-cli" | \
+    jq -r '.access_token') && \
+curl -X PUT "http://localhost:8080/admin/realms/mcp-gateway" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"sslRequired": "none"}'
+```
+
+**6e. Retrieve and save client credentials:**
+```bash
+chmod +x keycloak/setup/get-all-client-credentials.sh
+./keycloak/setup/get-all-client-credentials.sh
+```
+
+**6f. Update .env with client secrets:**
+```bash
+# View the retrieved secrets
+cat .oauth-tokens/keycloak-client-secrets.txt
+
+# Update .env with the actual secret values shown above
+nano .env
+# Find and update: KEYCLOAK_CLIENT_SECRET and KEYCLOAK_M2M_CLIENT_SECRET
+```
+
+**6g. Restart containers to apply new credentials:**
+```bash
+# Restart auth-server and registry to pick up the updated .env values
+docker compose restart auth-server registry
+```
+
+</details>
+
+---
+
+#### Step 7: Set Up Users and Service Accounts
+
+```bash
+chmod +x ./cli/bootstrap_user_and_m2m_setup.sh
 ./cli/bootstrap_user_and_m2m_setup.sh
 ```
 
-This script:
-- Creates 3 Keycloak groups: `registry-users-lob1`, `registry-users-lob2`, `registry-admins`
-- Creates 6 users for testing and management:
-  - **LOB1**: `lob1-bot` (M2M service account) and `lob1-user` (human user)
-  - **LOB2**: `lob2-bot` (M2M service account) and `lob2-user` (human user)
-  - **Admin**: `admin-bot` (M2M service account) and `admin-user` (human user)
-- Generates and saves OAuth credentials to `.oauth-tokens/` directory
+This creates:
+- **3 groups**: `registry-users-lob1`, `registry-users-lob2`, `registry-admins`
+- **6 users**:
+  - **LOB1**: `lob1-bot` (M2M) and `lob1-user` (human)
+  - **LOB2**: `lob2-bot` (M2M) and `lob2-user` (human)
+  - **Admin**: `admin-bot` (M2M) and `admin-user` (human)
 
-All user passwords default to the value set in your `.env` file (`INITIAL_USER_PASSWORD`).
+All credentials are saved to `.oauth-tokens/` directory.
 
-**Step 6: Access the registry**
+---
+
+#### Step 8: Create AI Agent Account (Optional)
+
+<details>
+<summary><strong>Click to expand: Create additional agent accounts</strong></summary>
+
 ```bash
+chmod +x keycloak/setup/setup-agent-service-account.sh
+
+# Create a test agent with full access
+./keycloak/setup/setup-agent-service-account.sh \
+  --agent-id test-agent \
+  --group mcp-servers-unrestricted
+
+# Create an agent for AI coding assistants
+./keycloak/setup/setup-agent-service-account.sh \
+  --agent-id ai-coding-assistant \
+  --group mcp-servers-unrestricted
+
+# Retrieve credentials for the new agents
+./keycloak/setup/get-all-client-credentials.sh
+```
+
+</details>
+
+---
+
+#### Step 9: Access the Registry
+
+<details>
+<summary><strong>Click to expand: Remote Access Options (EC2, Port Forwarding, etc.)</strong></summary>
+
+The method to access the web UI depends on where you're running the MCP Gateway:
+
+**Option A: Local Machine (Linux/macOS)**
+
+If you're running on your local machine, simply open a browser - you're already on localhost.
+
+**Option B: AWS EC2 with Port Forwarding**
+
+If you're running on EC2 and want to access from your local machine via SSH tunnels:
+
+```bash
+# From your local machine, create SSH tunnels
+ssh -i your-key.pem -L 7860:localhost:7860 -L 8080:localhost:8080 -L 8888:localhost:8888 -L 80:localhost:80 ubuntu@your-ec2-ip
+
+# Then access in your local browser: http://localhost:7860
+```
+
+**Option C: AWS EC2 with Remote Desktop (GUI Access)**
+
+If you prefer a full desktop environment on your EC2 instance:
+
+```bash
+# Install XFCE desktop and XRDP
+sudo apt update && sudo apt install -y xfce4 xfce4-goodies xrdp firefox
+echo "xfce4-session" > ~/.xsession
+sudo systemctl enable xrdp && sudo systemctl start xrdp
+sudo passwd ubuntu  # Set password for RDP login
+```
+
+**AWS Security Group**: Add inbound rule for port 3389 (RDP) from your IP.
+
+**Connect**: Use Remote Desktop Connection (Windows) or Microsoft Remote Desktop (macOS) with `your-ec2-ip:3389`, username `ubuntu`.
+
+See [Remote Desktop Setup Guide](docs/remote-desktop-setup.md) for detailed instructions.
+
+</details>
+
+```bash
+# On macOS:
 open http://localhost:7860
+
+# On Linux (install xdg-utils if xdg-open is not available):
+# sudo apt install xdg-utils
+xdg-open http://localhost:7860
+
+# Or open http://localhost:7860 in your browser
 ```
 
-**Step 7: Create your first agent**
-Complete: **[Create Your First AI Agent Account](docs/complete-setup-guide.md#create-your-first-ai-agent-account)** - Create agent credentials for testing
+Login with:
+- **Username**: `admin` (or any user created in Step 7)
+- **Password**: The `KEYCLOAK_ADMIN_PASSWORD` you set in Step 4
 
-**Step 8: Restart auth server to apply new credentials**
+---
+
+#### Step 10: Test the Setup
+
+<details>
+<summary><strong>Click to expand: Test with Python MCP client</strong></summary>
+
 ```bash
-docker-compose down auth-server && docker-compose rm -f auth-server && docker-compose up -d auth-server
+# Source agent credentials
+source .oauth-tokens/agent-test-agent-m2m.env
+
+# Test basic connectivity
+uv run python cli/mcp_client.py ping
+
+# Expected output:
+# M2M authentication successful
+# Session established: ...
+# {"jsonrpc": "2.0", "id": 2, "result": {}}
+
+# List available tools
+uv run python cli/mcp_client.py list
+
+# Test calling a tool
+uv run python cli/mcp_client.py call --tool intelligent_tool_finder --args '{"natural_language_query":"get current time in New York"}'
 ```
 
-**Step 9: Test the setup**
-Complete: **[Testing with mcp_client.py and agent.py](docs/complete-setup-guide.md#test-with-python-mcp-client)** - Validate your setup works correctly
+</details>
 
-**Benefits:** No build time • No Node.js required • No frontend compilation • Consistent tested images
+---
+
+**Benefits:** No build time | No Node.js required | No frontend compilation | Consistent tested images
+
+---
 
 ### Option B: Podman (Rootless Container Deployment)
 
@@ -505,7 +796,7 @@ brew install podman-desktop
 # OR download from: https://podman-desktop.io/
 ```
 
-Inside Podman Desktop, go to Preferences > Podman Machine and create a new machine with at least 4 CPUs and 8GB RAM. Alternatively, see more detailed [Podman installation guide] (docs/installation.md#podman-installation) for instructions on setting this up on CLI. 
+Inside Podman Desktop, go to Preferences > Podman Machine and create a new machine with at least 4 CPUs and 8GB RAM. Alternatively, see more detailed [Podman installation guide](docs/installation.md#podman-installation) for instructions on setting this up on CLI.
 
 ```bash
 # Initialize Podman machine
@@ -533,10 +824,12 @@ cp .env.example .env
 ./build_and_run.sh --prebuilt --podman
 
 # Access registry at non-privileged ports
+# On macOS:
 open http://localhost:8080
+# On Linux: xdg-open http://localhost:8080
 ```
 
-> Note: **Apple Silicon (M1/M2/M3)?** Don't use `--prebuilt` with Podman on ARM64. This will cause a "proxy already running" error. See [Podman on Apple Silicon Guide](docs/podman-apple-silicon.md). 
+> Note: **Apple Silicon (M1/M2/M3)?** Don't use `--prebuilt` with Podman on ARM64. This will cause a "proxy already running" error. See [Podman on Apple Silicon Guide](docs/podman-apple-silicon.md).
 
 ```bash
 # To run on Apple Silicon Macs:
