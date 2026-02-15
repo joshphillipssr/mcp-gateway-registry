@@ -179,7 +179,7 @@ phases:
         # Core services
         build_and_push mcp-gateway-registry docker/Dockerfile.registry-cpu . &
         build_and_push mcp-gateway-auth-server docker/Dockerfile.auth . &
-        build_and_push mcp-gateway-keycloak docker/keycloak/Dockerfile docker/keycloak &
+        build_and_push keycloak docker/keycloak/Dockerfile docker/keycloak &
 
         # MCP servers
         build_and_push mcp-gateway-currenttime docker/Dockerfile.mcp-server servers/currenttime &
