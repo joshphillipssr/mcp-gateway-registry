@@ -135,7 +135,7 @@ The metrics-service uses SQLite for local buffering but ECS Fargate task storage
               |  +---------------------------------------------+  |
               |                                                   |
               |  Access: https://<cloudfront>/grafana/            |
-              |  Auth: Anonymous (reference implementation)       |
+              |  Auth: admin / grafana_admin_password (from tfvars)|
               +---------------------------------------------------+
 ```
 
@@ -265,10 +265,10 @@ Pre-configured Grafana container:
 | Memory | 1024 |
 | Port | 3000 |
 | Root URL | `/grafana/` |
-| Auth | Anonymous (Viewer role) |
+| Auth | Login required (admin / `grafana_admin_password`) |
 | ALB Path | `/grafana/*` |
 
-**Note**: Grafana is deployed without authentication (anonymous access enabled) as a **reference implementation** for sample dashboards. Production deployments should configure authentication per their requirements (OAuth2, LDAP, etc.) via Grafana environment variables.
+**Note**: Anonymous access is disabled by default. The admin password is configured via `grafana_admin_password` in `terraform.tfvars` (marked as `sensitive` to prevent exposure in plan output). Generate a strong random password with: `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`
 
 **Critical Environment Variables for SigV4 Authentication:**
 
@@ -411,7 +411,7 @@ Configurable via the `HISTOGRAM_BUCKET_BOUNDARIES` environment variable on the m
 - Service-to-metrics-service: API key authentication (auto-generated, stored in Secrets Manager)
 - ADOT-to-AMP: IAM task role with SigV4
 - Grafana-to-AMP: IAM task role with SigV4
-- User-to-Grafana: Anonymous access (reference implementation -- configure authentication for production)
+- User-to-Grafana: Login required (admin / `grafana_admin_password` from `terraform.tfvars`)
 
 ### IAM Roles
 

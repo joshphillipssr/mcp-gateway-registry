@@ -24,8 +24,8 @@ RUN chown -R grafana:root /etc/grafana/provisioning && \
 USER grafana
 
 # Authentication defaults (ECS task definition overrides GF_SECURITY_ADMIN_PASSWORD at runtime)
-ENV GF_AUTH_ANONYMOUS_ENABLED=true
-ENV GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+ENV GF_AUTH_ANONYMOUS_ENABLED=false
+ENV GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
 ENV GF_AUTH_DISABLE_LOGIN_FORM=false
 ENV GF_USERS_ALLOW_SIGN_UP=false
 

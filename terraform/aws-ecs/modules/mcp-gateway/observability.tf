@@ -488,11 +488,11 @@ module "ecs_service_grafana" {
         },
         {
           name  = "GF_AUTH_ANONYMOUS_ENABLED"
-          value = "true"
+          value = "false"
         },
         {
           name  = "GF_AUTH_ANONYMOUS_ORG_ROLE"
-          value = "Admin"
+          value = "Viewer"
         },
         {
           name  = "GF_AUTH_DISABLE_LOGIN_FORM"
