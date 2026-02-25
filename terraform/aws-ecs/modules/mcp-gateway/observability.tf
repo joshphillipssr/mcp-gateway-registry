@@ -83,7 +83,7 @@ module "ecs_service_metrics" {
   cpu         = 512
   memory      = 1024
 
-  desired_count    = 1
+  desired_count      = 1
   enable_autoscaling = false
 
   enable_execute_command = true
@@ -408,7 +408,7 @@ module "ecs_service_grafana" {
   cpu         = 512
   memory      = 1024
 
-  desired_count    = 1
+  desired_count      = 1
   enable_autoscaling = false
 
   enable_execute_command = true
@@ -428,8 +428,8 @@ module "ecs_service_grafana" {
   }
   create_tasks_iam_role = true
   tasks_iam_role_policies = {
-    EcsExecTask       = aws_iam_policy.ecs_exec_task.arn
-    GrafanaAMPAccess  = aws_iam_policy.grafana_amp_query[0].arn
+    EcsExecTask      = aws_iam_policy.ecs_exec_task.arn
+    GrafanaAMPAccess = aws_iam_policy.grafana_amp_query[0].arn
   }
 
   service_connect_configuration = {
@@ -500,7 +500,7 @@ module "ecs_service_grafana" {
         },
         {
           name  = "GF_SECURITY_ADMIN_PASSWORD"
-          value = "admin"
+          value = var.grafana_admin_password
         },
         {
           name  = "GF_LOG_MODE"

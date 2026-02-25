@@ -23,11 +23,10 @@ RUN chown -R grafana:root /etc/grafana/provisioning && \
 # Switch back to grafana user
 USER grafana
 
-# Authentication - anonymous access for workshop simplicity
+# Authentication defaults (ECS task definition overrides GF_SECURITY_ADMIN_PASSWORD at runtime)
 ENV GF_AUTH_ANONYMOUS_ENABLED=true
 ENV GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
 ENV GF_AUTH_DISABLE_LOGIN_FORM=false
-ENV GF_SECURITY_ADMIN_PASSWORD=admin
 ENV GF_USERS_ALLOW_SIGN_UP=false
 
 # Server settings for ALB path-based routing

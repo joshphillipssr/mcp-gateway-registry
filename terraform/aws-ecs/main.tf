@@ -150,9 +150,10 @@ module "mcp_gateway" {
   registry_mode   = var.registry_mode
 
   # Observability configuration
-  enable_observability       = var.enable_observability
-  metrics_service_image_uri  = var.metrics_service_image_uri
-  grafana_image_uri          = var.grafana_image_uri
+  enable_observability      = var.enable_observability
+  metrics_service_image_uri = var.metrics_service_image_uri
+  grafana_image_uri         = var.grafana_image_uri
+  grafana_admin_password    = var.grafana_admin_password
 }
 
 # =============================================================================

@@ -584,3 +584,10 @@ variable "grafana_image_uri" {
   type        = string
   default     = ""
 }
+
+variable "grafana_admin_password" {
+  description = "Admin password for Grafana. Must be set when enable_observability is true."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
