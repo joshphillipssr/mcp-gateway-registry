@@ -111,8 +111,10 @@ class AsorFederationClient(BaseFederationClient):
         # Request token from Workday - use tenant-specific URL from config
         token_url = settings.workday_token_url
 
-        # Check if using placeholder URL
-        if "your-tenant.workday.com" in token_url:
+        # Check if using placeholder URL (exact match to avoid false positive security warning)
+        # This is not a security check - we're validating our own config default, not user input
+        PLACEHOLDER_URL = "https://your-tenant.workday.com/ccx/oauth2/your_instance/token"
+        if token_url == PLACEHOLDER_URL:
             logger.warning(
                 "WORKDAY_TOKEN_URL is using placeholder value. "
                 "ASOR federation is disabled. "
