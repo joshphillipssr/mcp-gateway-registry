@@ -126,10 +126,10 @@ async def _get_database_status() -> dict:
     try:
         from registry.repositories.documentdb.client import get_documentdb_client
 
-        client = await get_documentdb_client()
+        db = await get_documentdb_client()
 
-        # Try to ping the database
-        await client.admin.command("ping")
+        # Try to ping the database (db is AsyncIOMotorDatabase, not client)
+        await db.command("ping")
 
         # Get host information
         host_str = f"{settings.documentdb_host}:{settings.documentdb_port}"
