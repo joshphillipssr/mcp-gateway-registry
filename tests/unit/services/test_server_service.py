@@ -554,80 +554,6 @@ class TestGetAllServers:
         assert sample_server_dict["path"] in result
         assert sample_server_dict_2["path"] in result
 
-    @pytest.mark.asyncio
-    async def test_get_all_servers_includes_federated(
-        self,
-        server_service: ServerService,
-        sample_server_dict: dict[str, Any],
-        mock_server_repository,
-    ):
-        """Test getting all servers includes federated servers."""
-        # Arrange
-        mock_server_repository.list_all.return_value = {
-            sample_server_dict["path"]: sample_server_dict
-        }
-
-        # Mock federation service
-        from unittest.mock import AsyncMock
-
-        mock_federation_service = MagicMock()
-        federated_server = {
-            "path": "/federated-server",
-            "server_name": "federated",
-            "description": "Federated server",
-        }
-        mock_federation_service.get_federated_servers = AsyncMock(return_value=[federated_server])
-
-        # Patch at the point of use
-        with patch(
-            "registry.services.federation_service.get_federation_service",
-            return_value=mock_federation_service,
-        ):
-            # Act
-            result = await server_service.get_all_servers(include_federated=True)
-
-        # Assert
-        assert len(result) == 2
-        assert sample_server_dict["path"] in result
-        assert "/federated-server" in result
-
-    @pytest.mark.asyncio
-    async def test_get_all_servers_skips_duplicate_federated(
-        self,
-        server_service: ServerService,
-        sample_server_dict: dict[str, Any],
-        mock_server_repository,
-    ):
-        """Test that federated servers don't override local servers."""
-        # Arrange
-        mock_server_repository.list_all.return_value = {
-            sample_server_dict["path"]: sample_server_dict
-        }
-
-        # Mock federation service with duplicate path
-        from unittest.mock import AsyncMock
-
-        mock_federation_service = MagicMock()
-        federated_server = {
-            "path": sample_server_dict["path"],  # Same path as local
-            "server_name": "federated-duplicate",
-        }
-        mock_federation_service.get_federated_servers = AsyncMock(return_value=[federated_server])
-
-        # Patch at the point of use
-        with patch(
-            "registry.services.federation_service.get_federation_service",
-            return_value=mock_federation_service,
-        ):
-            # Act
-            result = await server_service.get_all_servers(include_federated=True)
-
-        # Assert
-        assert len(result) == 1
-        # Local server should be preserved
-        assert (
-            result[sample_server_dict["path"]]["server_name"] == sample_server_dict["server_name"]
-        )
 
 
 # =============================================================================
@@ -854,8 +780,7 @@ class TestGetAllServersWithPermissions:
 
         # Act
         result = await server_service.get_all_servers_with_permissions(
-            accessible_servers=None, include_federated=False
-        )
+            accessible_servers=None,         )
 
         # Assert
         assert len(result) == 2
@@ -879,47 +804,12 @@ class TestGetAllServersWithPermissions:
 
         # Act
         result = await server_service.get_all_servers_with_permissions(
-            accessible_servers=["test-server"], include_federated=False
-        )
+            accessible_servers=["test-server"],         )
 
         # Assert
         assert len(result) == 1
         assert "/test-server" in result
 
-    @pytest.mark.asyncio
-    async def test_get_all_servers_with_permissions_includes_federated(
-        self,
-        server_service: ServerService,
-        sample_server_dict: dict[str, Any],
-        mock_server_repository,
-    ):
-        """Test that federated servers are included when requested."""
-        # Arrange
-        from unittest.mock import AsyncMock
-
-        mock_server_repository.list_all.return_value = {
-            sample_server_dict["path"]: sample_server_dict
-        }
-
-        mock_federation_service = MagicMock()
-        federated_server = {
-            "path": "/federated-server",
-            "server_name": "federated",
-        }
-        mock_federation_service.get_federated_servers = AsyncMock(return_value=[federated_server])
-
-        # Patch at the point of use
-        with patch(
-            "registry.services.federation_service.get_federation_service",
-            return_value=mock_federation_service,
-        ):
-            # Act
-            result = await server_service.get_all_servers_with_permissions(
-                accessible_servers=["test-server", "federated-server"], include_federated=True
-            )
-
-        # Assert
-        assert len(result) == 2
 
 
 # =============================================================================

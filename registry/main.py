@@ -53,7 +53,6 @@ from registry.services.agent_service import agent_service
 from registry.repositories.factory import get_search_repository
 from registry.health.service import health_service
 from registry.core.nginx_service import nginx_service
-from registry.services.federation_service import get_federation_service
 from registry.services.peer_federation_service import get_peer_federation_service
 from registry.services.peer_sync_scheduler import get_peer_sync_scheduler
 
@@ -329,6 +328,36 @@ async def lifespan(app: FastAPI):
                                     )
 
                             logger.info(f"✅ Synced {synced_count} servers from Anthropic")
+
+                            # Run reconciliation after sync to remove stale servers
+                            logger.info("🔄 Running reconciliation after startup sync...")
+                            try:
+                                from registry.services.federation_reconciliation import (
+                                    reconcile_anthropic_servers,
+                                )
+                                from registry.repositories.factory import (
+                                    get_server_repository,
+                                )
+
+                                server_repo = await get_server_repository()
+                                reconciliation_result = await reconcile_anthropic_servers(
+                                    config=federation_config,
+                                    server_service=server_service,
+                                    server_repo=server_repo,
+                                    nginx_service=None,
+                                    skip_nginx_regen=True,
+                                )
+
+                                logger.info(
+                                    f"✅ Reconciliation complete: "
+                                    f"removed {len(reconciliation_result.removed_servers)} stale servers, "
+                                    f"kept {len(reconciliation_result.active_servers)} active servers"
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"⚠️ Reconciliation failed (continuing with startup): {e}",
+                                    exc_info=True,
+                                )
 
                         # ASOR sync would go here if needed
 
