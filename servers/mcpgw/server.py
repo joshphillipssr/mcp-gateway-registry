@@ -26,17 +26,32 @@ mcp = FastMCP("mcpgw")
 
 
 def _extract_bearer_token(ctx: Context | None) -> str | None:
-    """Extract bearer token from FastMCP context."""
+    """Extract bearer token from FastMCP context via Starlette Request."""
     if not ctx:
+        logger.debug("Context is None, cannot extract token")
         return None
 
     try:
-        if hasattr(ctx, "http_request") and ctx.http_request:
-            auth_header = ctx.http_request.headers.get("authorization")
-            if auth_header and auth_header.lower().startswith("bearer "):
-                return auth_header.split(" ", 1)[1]
+        # Access the Starlette Request object from request_context
+        if hasattr(ctx, "request_context") and ctx.request_context:
+            request = ctx.request_context.request
+            if request and hasattr(request, "headers"):
+                # Get Authorization header (case-insensitive)
+                auth_header = request.headers.get("authorization")
+
+                if auth_header and auth_header.lower().startswith("bearer "):
+                    token = auth_header.split(" ", 1)[1]
+                    logger.debug(f"Successfully extracted token (length: {len(token)})")
+                    return token
+
+                logger.warning("Authorization header not found or not a Bearer token")
+            else:
+                logger.warning("Request object or headers not found in request_context")
+        else:
+            logger.warning("request_context not available in Context")
+
     except Exception as e:
-        logger.warning(f"Failed to extract token: {e}")
+        logger.error(f"Failed to extract token: {e}", exc_info=True)
 
     return None
 
