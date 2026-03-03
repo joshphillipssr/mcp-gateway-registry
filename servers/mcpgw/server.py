@@ -4,9 +4,11 @@ This server provides tools to interact with the MCP Gateway Registry API.
 
 import argparse
 import asyncio  # Added for locking
+import base64
 import json
 import logging
 import os
+import re
 
 # Import embeddings client from registry
 import sys
@@ -43,6 +45,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+_QUERY_STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "that",
+    "this",
+    "into",
+    "about",
+    "find",
+    "tool",
+    "tools",
+    "use",
+    "using",
+    "help",
+    "get",
+    "list",
+    "show",
+}
+
+_HIGH_SIGNAL_QUERY_TOKENS = {
+    "github",
+    "git",
+    "repo",
+    "repos",
+    "repository",
+    "repositories",
+    "issue",
+    "issues",
+    "pull",
+    "request",
+    "commit",
+    "branch",
+}
+
 load_dotenv()  # Load environment variables from .env file
 
 # Get Registry URL from environment variable (keep this one)
@@ -57,12 +95,35 @@ if not REGISTRY_BASE_URL:
 _scopes_config = None
 
 
-def _get_internal_auth_headers() -> dict:
-    """Get authorization headers for internal API calls using JWT."""
-    from registry.auth.internal import generate_internal_token
+def _get_internal_auth_headers() -> dict[str, str]:
+    """
+    Get authorization headers for internal API calls.
 
-    token = generate_internal_token(subject="mcpgw-server", purpose="internal-api")
-    return {"Authorization": f"Bearer {token}"}
+    Preferred: short-lived JWT signed with SECRET_KEY.
+    Fallback: Basic auth using REGISTRY_USERNAME / REGISTRY_PASSWORD.
+    """
+    try:
+        from registry.auth.internal import generate_internal_token
+
+        token = generate_internal_token(subject="mcpgw-server", purpose="internal-api")
+        return {"Authorization": f"Bearer {token}"}
+    except Exception as jwt_error:
+        username = os.getenv("REGISTRY_USERNAME")
+        password = os.getenv("REGISTRY_PASSWORD")
+        if username and password:
+            basic_token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode(
+                "utf-8"
+            )
+            logger.warning(
+                "Falling back to Basic auth for internal API calls because JWT setup failed: %s",
+                jwt_error,
+            )
+            return {"Authorization": f"Basic {basic_token}"}
+
+        raise RuntimeError(
+            "Unable to build internal auth headers. Configure SECRET_KEY for JWT "
+            "or REGISTRY_USERNAME/REGISTRY_PASSWORD for Basic auth fallback."
+        ) from jwt_error
 
 
 # --- Scopes Management Helper Functions ---
@@ -129,6 +190,106 @@ def extract_user_scopes_from_headers(headers: dict[str, str]) -> list[str]:
     return scopes
 
 
+def get_default_user_scopes_from_env() -> list[str]:
+    """
+    Optional fallback scopes for integrations that do not forward scope headers.
+
+    Expected format:
+      - Comma-separated: "scope-a,scope-b"
+      - Space-separated: "scope-a scope-b"
+    """
+    raw = os.getenv("MCPGW_DEFAULT_SCOPES", "").strip()
+    if not raw:
+        return []
+
+    if "," in raw:
+        scopes = [scope.strip() for scope in raw.split(",") if scope.strip()]
+    else:
+        scopes = [scope.strip() for scope in raw.split() if scope.strip()]
+
+    logger.info(f"Using MCPGW_DEFAULT_SCOPES fallback: {scopes}")
+    return scopes
+
+
+def _tool_allowed_for_scope(configured_tools: Any, tool_name: str) -> bool:
+    """Check tool permission with support for wildcard entries."""
+    if configured_tools == "*":
+        return True
+    if isinstance(configured_tools, list):
+        return "*" in configured_tools or tool_name in configured_tools
+    return False
+
+
+def _normalize_service_name_for_matching(service_name: str) -> str:
+    """
+    Normalize service identifiers for semantic/lexical matching.
+
+    Example:
+    - io.github.Owner/repo-name -> repo name
+    - owner/repo-name -> repo name
+    """
+    if not service_name:
+        return ""
+
+    normalized = service_name.strip()
+    lowered = normalized.lower()
+
+    if lowered.startswith(("io.github.", "com.github.", "org.github.")):
+        if "/" in normalized:
+            normalized = normalized.split("/", 1)[1]
+        else:
+            normalized = normalized.split(".")[-1]
+
+    if "/" in normalized:
+        normalized = normalized.split("/", 1)[1]
+
+    return re.sub(r"[^a-z0-9]+", " ", normalized.lower()).strip()
+
+
+def _query_tokens(text: str) -> set[str]:
+    """Build normalized query tokens for lightweight lexical boosting."""
+    tokens = set()
+    for token in re.findall(r"[a-z0-9]+", (text or "").lower()):
+        if len(token) < 3:
+            continue
+        if token in _QUERY_STOPWORDS:
+            continue
+        tokens.add(token)
+    return tokens
+
+
+def _lexical_tool_signal(
+    query_tokens: set[str],
+    raw_service_name: str,
+    normalized_service_name: str,
+    tool_name: str,
+    description: str,
+) -> float:
+    """
+    Compute lexical relevance signal for a candidate tool.
+    """
+    if not query_tokens:
+        return 0.0
+
+    service_tokens = _query_tokens(normalized_service_name)
+    tool_tokens = _query_tokens(tool_name.replace("_", " ").replace("-", " "))
+    desc_tokens = _query_tokens(description)
+
+    score = 0.0
+    score += 1.4 * len(query_tokens & tool_tokens)
+    score += 1.0 * len(query_tokens & desc_tokens)
+    score += 0.4 * len(query_tokens & service_tokens)
+
+    query_has_github = "github" in query_tokens
+    explicit_github_tokens = tool_tokens | desc_tokens
+    namespace_like = raw_service_name.lower().startswith(("io.github.", "com.github.", "org.github."))
+    if query_has_github and namespace_like and "github" not in explicit_github_tokens:
+        # Avoid over-ranking all io.github.* package namespaces for generic "github" queries.
+        score -= 0.8
+
+    return score
+
+
 def check_tool_access(
     server_name: str, tool_name: str, user_scopes: list[str], scopes_config: dict[str, Any]
 ) -> bool:
@@ -168,10 +329,11 @@ def check_tool_access(
                     # Normalize server names by stripping trailing slashes for comparison
                     config_server_name = server_config.get("server", "").rstrip("/")
                     normalized_server_name = server_name.rstrip("/")
-                    if config_server_name == normalized_server_name:
+                    server_matches = config_server_name in ("*", normalized_server_name)
+                    if server_matches:
                         tools = server_config.get("tools", [])
                         logger.info(f"Available tools for {server_name}: {tools}")
-                        if tool_name in tools:
+                        if _tool_allowed_for_scope(tools, tool_name):
                             logger.info(
                                 f"Access granted: {server_name}.{tool_name} via scope {user_scope}"
                             )
@@ -192,9 +354,10 @@ def check_tool_access(
                             # Normalize server names by stripping trailing slashes for comparison
                             config_server_name = server_config.get("server", "").rstrip("/")
                             normalized_server_name = server_name.rstrip("/")
-                            if config_server_name == normalized_server_name:
+                            server_matches = config_server_name in ("*", normalized_server_name)
+                            if server_matches:
                                 tools = server_config.get("tools", [])
-                                if tool_name in tools:
+                                if _tool_allowed_for_scope(tools, tool_name):
                                     logger.info(
                                         f"Access granted: {server_name}.{tool_name} via group {group} -> {mapped_scope}"
                                     )
@@ -1272,14 +1435,27 @@ async def register_service(
 
 
 @mcp.tool()
-async def list_services(ctx: Context = None) -> dict[str, Any]:
+async def list_services(
+    include_tool_list: bool = Field(
+        False,
+        description="If true, include per-service tool metadata in the response. Default false for faster, smaller responses.",
+    ),
+    include_tool_schemas: bool = Field(
+        False,
+        description="If true (and include_tool_list is true), include full tool schema payloads. Default false to return compact tool metadata.",
+    ),
+    ctx: Context = None,
+) -> dict[str, Any]:
     """
     Lists all registered MCP services in the gateway.
 
+    By default this returns a compact response without full tool schemas, which keeps
+    ChatGPT connector calls fast and avoids oversized payloads.
+
     Returns:
         A dictionary containing:
-        - services: List of service information with details like name, path, status, etc.
-        - total_count: Total number of services
+        - services: List of service information.
+        - total_count: Total number of services.
 
     Example:
         services_info = await list_services()
@@ -1295,10 +1471,60 @@ async def list_services(ctx: Context = None) -> dict[str, Any]:
         result = await _call_registry_api("GET", endpoint, ctx)
 
         if isinstance(result, dict) and "services" in result:
-            logger.info(
-                f"MCPGW: Successfully retrieved {result.get('total_count', len(result['services']))} services"
+            raw_services = result.get("services", [])
+            compact_services = []
+
+            for service in raw_services:
+                if not isinstance(service, dict):
+                    continue
+
+                service_item = dict(service)
+                tool_list = service_item.get("tool_list", [])
+                service_item["tool_count"] = (
+                    len(tool_list)
+                    if isinstance(tool_list, list)
+                    else service_item.get("num_tools", 0)
+                )
+
+                if include_tool_list:
+                    if include_tool_schemas:
+                        service_item["tool_list"] = tool_list
+                    else:
+                        compact_tool_list = []
+                        if isinstance(tool_list, list):
+                            for tool in tool_list:
+                                if not isinstance(tool, dict):
+                                    continue
+                                compact_tool_list.append(
+                                    {
+                                        "name": tool.get("name"),
+                                        "description": (
+                                            (tool.get("parsed_description") or {}).get("main")
+                                            or "No description available."
+                                        ),
+                                    }
+                                )
+                        service_item["tool_list"] = compact_tool_list
+                else:
+                    service_item.pop("tool_list", None)
+
+                compact_services.append(service_item)
+
+            response_mode = (
+                "full"
+                if include_tool_list and include_tool_schemas
+                else "with_tools" if include_tool_list else "compact"
             )
-            return result
+            logger.info(
+                "MCPGW: Successfully retrieved %s services (mode=%s)",
+                result.get("total_count", len(raw_services)),
+                response_mode,
+            )
+            return {
+                "services": compact_services,
+                "total_count": result.get("total_count", len(compact_services)),
+                "response_mode": response_mode,
+            }
         else:
             logger.warning(
                 f"MCPGW: Unexpected response format from registry list endpoint: {result}"
@@ -1424,8 +1650,8 @@ async def intelligent_tool_finder(
         description="List of tags to filter tools by using AND logic. IMPORTANT: AI agents should ONLY use this if the user explicitly provides specific tags. DO NOT infer tags - incorrect tags will exclude valid results.",
     ),
     top_k_services: int = Field(
-        3,
-        description="Number of top services to consider from initial FAISS search (ignored if only tags provided).",
+        120,
+        description="Number of top services to consider from initial FAISS search (ignored if only tags provided). Higher default improves discovery in larger registries.",
     ),
     top_n_tools: int = Field(1, description="Number of best matching tools to return."),
     ctx: Context = None,
@@ -1483,8 +1709,15 @@ async def intelligent_tool_finder(
             logger.warning(f"Could not extract scopes from headers: {e}")
 
     if not user_scopes:
-        logger.warning("No user scopes found - user may not have access to any tools")
-        return []
+        fallback_scopes = get_default_user_scopes_from_env()
+        if fallback_scopes:
+            user_scopes = fallback_scopes
+            logger.warning(
+                "No user scopes found in request headers; using MCPGW_DEFAULT_SCOPES fallback"
+            )
+        else:
+            logger.warning("No user scopes found - user may not have access to any tools")
+            return []
 
     # Input validation - at least one of query or tags must be provided
     if not natural_language_query and not tags:
@@ -1494,6 +1727,7 @@ async def intelligent_tool_finder(
     normalized_tags = [tag.lower().strip() for tag in tags] if tags else []
     if normalized_tags:
         logger.info(f"MCPGW: Filtering by tags: {normalized_tags}")
+    query_tokens = _query_tokens(natural_language_query or "")
 
     global _embedding_model_mcpgw, _faiss_index_mcpgw, _faiss_metadata_mcpgw, _last_faiss_check_time
     import time
@@ -1580,6 +1814,62 @@ async def intelligent_tool_finder(
                     f"MCPGW: Could not find service_path for FAISS ID {faiss_id}. Skipping."
                 )
 
+        # Add lexical service matches to reduce misses when semantic service embeddings are noisy.
+        if query_tokens:
+            lexical_service_scores = []
+            for lexical_service_path, meta_item in registry_faiss_metadata.items():
+                full_server_info = meta_item.get("full_server_info", {})
+                service_name = full_server_info.get("server_name", "")
+                service_desc = full_server_info.get("description", "")
+                tags_value = full_server_info.get("tags", [])
+                tags_text = (
+                    " ".join(str(tag) for tag in tags_value)
+                    if isinstance(tags_value, list)
+                    else str(tags_value)
+                )
+                tool_value = full_server_info.get("tool_list", [])
+                tool_text_parts = []
+                if isinstance(tool_value, list):
+                    for tool_item in tool_value[:40]:
+                        if not isinstance(tool_item, dict):
+                            continue
+                        tool_name = str(tool_item.get("name", ""))
+                        tool_desc = str(
+                            (tool_item.get("parsed_description") or {}).get("main", "")
+                        )
+                        if tool_name or tool_desc:
+                            tool_text_parts.append(f"{tool_name} {tool_desc}")
+                tool_text = " ".join(tool_text_parts)
+
+                service_search_text = " ".join(
+                    [
+                        _normalize_service_name_for_matching(service_name),
+                        str(service_desc),
+                        tags_text,
+                        tool_text,
+                    ]
+                )
+                lexical_hits = len(query_tokens & _query_tokens(service_search_text))
+                if lexical_hits > 0:
+                    lexical_service_scores.append((lexical_hits, lexical_service_path))
+
+            lexical_service_scores.sort(key=lambda item: item[0], reverse=True)
+            max_lexical_services = min(max(top_k_services // 2, 20), 200)
+            lexical_added = 0
+            for _lexical_hits, lexical_service_path in lexical_service_scores:
+                if lexical_service_path in services_to_process:
+                    continue
+                services_to_process.append(lexical_service_path)
+                lexical_added += 1
+                if lexical_added >= max_lexical_services:
+                    break
+
+            if lexical_added:
+                logger.info(
+                    "MCPGW: Added %s lexical service candidates for query token overlap",
+                    lexical_added,
+                )
+
         logger.info(
             f"MCPGW: Processing {len(services_to_process)} services from FAISS search results."
         )
@@ -1635,6 +1925,7 @@ async def intelligent_tool_finder(
             f"MCPGW: Processing service {service_path} with full_server_info: {full_server_info}"
         )
         service_name = full_server_info.get("server_name", "Unknown Service")
+        service_name_for_matching = _normalize_service_name_for_matching(service_name)
         tool_list = full_server_info.get("tool_list", [])
         supported_transports = full_server_info.get("supported_transports", ["streamable-http"])
         auth_provider = full_server_info.get("auth_provider", None)
@@ -1662,7 +1953,14 @@ async def intelligent_tool_finder(
 
             # Create descriptive text for this specific tool
             tool_text_for_embedding = (
-                f"Service: {service_name}. Tool: {tool_name}. Description: {main_desc}"
+                f"Service: {service_name_for_matching}. Tool: {tool_name}. Description: {main_desc}"
+            )
+            lexical_signal = _lexical_tool_signal(
+                query_tokens=query_tokens,
+                raw_service_name=service_name,
+                normalized_service_name=service_name_for_matching,
+                tool_name=tool_name,
+                description=main_desc,
             )
 
             candidate_tools.append(
@@ -1673,8 +1971,10 @@ async def intelligent_tool_finder(
                     "tool_schema": tool_info.get("schema", {}),
                     "service_path": service_path,
                     "service_name": service_name,
+                    "service_name_for_matching": service_name_for_matching,
                     "supported_transports": supported_transports,
                     "auth_provider": auth_provider,
+                    "lexical_signal": lexical_signal,
                 }
             )
 
@@ -1710,9 +2010,39 @@ async def intelligent_tool_finder(
         # 6. Add similarity score to each tool and sort
         ranked_tools = []
         for i, tool_data in enumerate(candidate_tools):
-            ranked_tools.append({**tool_data, "overall_similarity_score": float(similarities[i])})
+            semantic_score = float(similarities[i])
+            lexical_signal = float(tool_data.get("lexical_signal", 0.0))
+            overall_score = semantic_score + (0.20 * lexical_signal)
+            ranked_tools.append(
+                {
+                    **tool_data,
+                    "semantic_similarity_score": semantic_score,
+                    "overall_similarity_score": overall_score,
+                }
+            )
 
         ranked_tools.sort(key=lambda x: x["overall_similarity_score"], reverse=True)
+
+        # If the query contains high-signal repo workflow terms, require lexical evidence
+        # so namespace artifacts (e.g., io.github.*) do not dominate rankings.
+        high_signal_tokens = query_tokens & _HIGH_SIGNAL_QUERY_TOKENS
+        if high_signal_tokens:
+            lexical_matches = [
+                tool for tool in ranked_tools if float(tool.get("lexical_signal", 0.0)) > 0.0
+            ]
+            if lexical_matches:
+                ranked_tools = lexical_matches
+                logger.info(
+                    "MCPGW: Applied high-signal lexical filter for tokens %s; %s tools remain",
+                    sorted(high_signal_tokens),
+                    len(ranked_tools),
+                )
+            else:
+                logger.warning(
+                    "MCPGW: No lexical matches found for high-signal tokens %s",
+                    sorted(high_signal_tokens),
+                )
+                return []
     else:
         # Tags-only mode: no semantic ranking, just use the tools as-is
         ranked_tools = candidate_tools
@@ -1736,6 +2066,9 @@ async def intelligent_tool_finder(
     # Remove the temporary 'text_for_embedding' field from results
     for res in final_results:
         del res["text_for_embedding"]
+        res.pop("service_name_for_matching", None)
+        res.pop("lexical_signal", None)
+        res.pop("semantic_similarity_score", None)
     logger.info(
         f"intelligent_tool_finder, final_results: {json.dumps(final_results, indent=2, default=str)}"
     )
