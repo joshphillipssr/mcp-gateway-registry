@@ -27,6 +27,21 @@ services:
   auth-server:
     ports:
       - "18888:8888"
+    networks:
+      - default
+      - traefik_proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+      - traefik.http.services.mcp-agentic-auth.loadbalancer.server.port=8888
+      - traefik.http.routers.mcp-agentic-auth.rule=Host(`mcp.joshsr.ai`) && PathPrefix(`/registry-auth`)
+      - traefik.http.routers.mcp-agentic-auth.entrypoints=websecure
+      - traefik.http.routers.mcp-agentic-auth.tls=true
+      - traefik.http.routers.mcp-agentic-auth.tls.certresolver=cf
+      - traefik.http.routers.mcp-agentic-auth.priority=230
+      - traefik.http.routers.mcp-agentic-auth.service=mcp-agentic-auth
+      - traefik.http.routers.mcp-agentic-auth.middlewares=mcp-agentic-auth-strip
+      - traefik.http.middlewares.mcp-agentic-auth-strip.stripprefix.prefixes=/registry-auth
 
   metrics-service:
     ports:
