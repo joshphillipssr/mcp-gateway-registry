@@ -137,12 +137,16 @@ def get_config() -> str:
 
 
 def main():
+    # Use configurable host with secure default (127.0.0.1)
+    # Set HOST=0.0.0.0 in environment for Docker deployments
+    host = os.environ.get("HOST", "127.0.0.1")
+
     # Log startup information
-    logger.info(f"Starting CurrentTime server on port {args.port}")
-    logger.info(f"Server will be available at: http://0.0.0.0:{args.port}/mcp")
+    logger.info(f"Starting CurrentTime server on {host}:{args.port}")
+    logger.info(f"Server will be available at: http://{host}:{args.port}/mcp")
 
     # Run the server
-    mcp.run(transport=args.transport, host="0.0.0.0", port=int(args.port))
+    mcp.run(transport=args.transport, host=host, port=int(args.port))
 
 
 if __name__ == "__main__":
