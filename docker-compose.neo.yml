@@ -2,6 +2,27 @@ services:
   registry:
     ports:
       - "17860:7860"
+    networks:
+      - default
+      - traefik_proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+      - traefik.http.services.mcp-agentic-registry.loadbalancer.server.port=80
+      - traefik.http.routers.mcp-agentic-registry-ui.rule=Host(`mcp.joshsr.ai`) && PathPrefix(`/registry`)
+      - traefik.http.routers.mcp-agentic-registry-ui.entrypoints=websecure
+      - traefik.http.routers.mcp-agentic-registry-ui.tls=true
+      - traefik.http.routers.mcp-agentic-registry-ui.tls.certresolver=cf
+      - traefik.http.routers.mcp-agentic-registry-ui.priority=220
+      - traefik.http.routers.mcp-agentic-registry-ui.service=mcp-agentic-registry
+      - traefik.http.routers.mcp-agentic-registry-ui.middlewares=mcp-agentic-registry-strip
+      - traefik.http.middlewares.mcp-agentic-registry-strip.stripprefix.prefixes=/registry
+      - traefik.http.routers.mcp-agentic-registry-assets.rule=Host(`mcp.joshsr.ai`) && (PathPrefix(`/api`) || PathPrefix(`/static`) || Path(`/favicon.ico`) || Path(`/manifest.json`) || Path(`/asset-manifest.json`) || Path(`/robots.txt`))
+      - traefik.http.routers.mcp-agentic-registry-assets.entrypoints=websecure
+      - traefik.http.routers.mcp-agentic-registry-assets.tls=true
+      - traefik.http.routers.mcp-agentic-registry-assets.tls.certresolver=cf
+      - traefik.http.routers.mcp-agentic-registry-assets.priority=210
+      - traefik.http.routers.mcp-agentic-registry-assets.service=mcp-agentic-registry
 
   auth-server:
     ports:
