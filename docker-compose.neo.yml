@@ -54,6 +54,11 @@ services:
     ports: []
 
   mcpgw-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp-server
+      args:
+        SERVER_DIR: servers/mcpgw
     ports:
       - "8003:8003"
     environment:
