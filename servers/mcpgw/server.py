@@ -8,6 +8,7 @@ All tools require bearer token authentication via the Authorization header.
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from fastmcp import Context, FastMCP
@@ -21,15 +22,100 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Security constants
+ALLOWED_REGISTRY_HOSTS: list[str] = [
+    "localhost",
+    "127.0.0.1",
+    "mcpgw-server",
+    "registry",
+]
+MAX_QUERY_LENGTH: int = 500
+MIN_TOP_N: int = 1
+MAX_TOP_N: int = 100
+
 # Initialize FastMCP server
 mcp = FastMCP("mcpgw")
 
 
-def _extract_bearer_token(ctx: Context | None) -> str | None:
-    """Extract bearer token from FastMCP context via Starlette Request."""
+def _validate_registry_url(registry_url: str) -> str:
+    """Validate registry URL against allowlist to prevent SSRF attacks.
+
+    Args:
+        registry_url: Registry base URL to validate
+
+    Returns:
+        Validated registry URL
+
+    Raises:
+        ValueError: If hostname is not in the allowlist
+    """
+    parsed = urlparse(registry_url)
+    hostname = parsed.hostname
+
+    if not hostname or hostname not in ALLOWED_REGISTRY_HOSTS:
+        raise ValueError(
+            f"Invalid registry URL. Hostname must be one of: {', '.join(ALLOWED_REGISTRY_HOSTS)}"
+        )
+
+    return registry_url
+
+
+def _validate_top_n(top_n: int) -> int:
+    """Validate top_n parameter is within acceptable bounds.
+
+    Args:
+        top_n: Number of results to return
+
+    Returns:
+        Validated top_n value
+
+    Raises:
+        ValueError: If top_n is out of bounds
+    """
+    if not isinstance(top_n, int) or top_n < MIN_TOP_N or top_n > MAX_TOP_N:
+        raise ValueError(
+            f"top_n must be an integer between {MIN_TOP_N} and {MAX_TOP_N}"
+        )
+    return top_n
+
+
+def _validate_query(query: str) -> str:
+    """Validate query parameter.
+
+    Args:
+        query: Search query string
+
+    Returns:
+        Validated and trimmed query
+
+    Raises:
+        ValueError: If query is empty or too long
+    """
+    if not query or not query.strip():
+        raise ValueError("Query cannot be empty")
+
+    if len(query) > MAX_QUERY_LENGTH:
+        raise ValueError(
+            f"Query exceeds maximum length of {MAX_QUERY_LENGTH} characters"
+        )
+
+    return query.strip()
+
+
+def _extract_bearer_token(ctx: Context | None) -> str:
+    """Extract bearer token from FastMCP context via Starlette Request.
+
+    Args:
+        ctx: FastMCP context containing request information
+
+    Returns:
+        Bearer token string
+
+    Raises:
+        ValueError: If token cannot be extracted or is missing
+    """
     if not ctx:
-        logger.debug("Context is None, cannot extract token")
-        return None
+        raise ValueError("Authentication required: Context is None")
 
     try:
         # Access the Starlette Request object from request_context
@@ -44,16 +130,19 @@ def _extract_bearer_token(ctx: Context | None) -> str | None:
                     logger.debug(f"Successfully extracted token (length: {len(token)})")
                     return token
 
-                logger.warning("Authorization header not found or not a Bearer token")
+                raise ValueError("Authorization header not found or not a Bearer token")
             else:
-                logger.warning("Request object or headers not found in request_context")
+                raise ValueError(
+                    "Request object or headers not found in request_context"
+                )
         else:
-            logger.warning("request_context not available in Context")
+            raise ValueError("request_context not available in Context")
 
+    except ValueError:
+        raise
     except Exception as e:
         logger.error(f"Failed to extract token: {e}", exc_info=True)
-
-    return None
+        raise ValueError(f"Failed to extract bearer token: {e}") from e
 
 
 @mcp.tool()
@@ -72,8 +161,10 @@ async def list_services(
     logger.info(f"list_services called with registry_url: {registry_url}")
 
     try:
+        # Validate inputs
+        registry_url = _validate_registry_url(registry_url)
         token = _extract_bearer_token(ctx)
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers = {"Authorization": f"Bearer {token}"}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
@@ -100,6 +191,14 @@ async def list_services(
             "status": "success",
         }
 
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        return {
+            "services": [],
+            "total_count": 0,
+            "error": str(e),
+            "status": "failed",
+        }
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error: {e.response.status_code}")
         return {
@@ -134,8 +233,10 @@ async def list_agents(
     logger.info(f"list_agents called with registry_url: {registry_url}")
 
     try:
+        # Validate inputs
+        registry_url = _validate_registry_url(registry_url)
         token = _extract_bearer_token(ctx)
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers = {"Authorization": f"Bearer {token}"}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(f"{registry_url}/api/agents", headers=headers)
@@ -151,6 +252,14 @@ async def list_agents(
             "status": "success",
         }
 
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        return {
+            "agents": [],
+            "total_count": 0,
+            "error": str(e),
+            "status": "failed",
+        }
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error: {e.response.status_code}")
         return {
@@ -185,8 +294,10 @@ async def list_skills(
     logger.info(f"list_skills called with registry_url: {registry_url}")
 
     try:
+        # Validate inputs
+        registry_url = _validate_registry_url(registry_url)
         token = _extract_bearer_token(ctx)
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers = {"Authorization": f"Bearer {token}"}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(f"{registry_url}/api/skills", headers=headers)
@@ -202,6 +313,14 @@ async def list_skills(
             "status": "success",
         }
 
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        return {
+            "skills": [],
+            "total_count": 0,
+            "error": str(e),
+            "status": "failed",
+        }
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error: {e.response.status_code}")
         return {
@@ -232,17 +351,23 @@ async def intelligent_tool_finder(
 
     Args:
         query: Natural language description of what you want to do
-        top_n: Number of results to return (default: 5)
+        top_n: Number of results to return (default: 5, max: 100)
         registry_url: Base URL of the registry (default: http://localhost)
 
     Returns:
         Dictionary containing results, query, total_results, and status
     """
-    logger.info(f"intelligent_tool_finder called: query={query}, registry_url={registry_url}")
+    logger.info(
+        f"intelligent_tool_finder called: query={query}, top_n={top_n}, registry_url={registry_url}"
+    )
 
     try:
+        # Validate inputs
+        query = _validate_query(query)
+        top_n = _validate_top_n(top_n)
+        registry_url = _validate_registry_url(registry_url)
         token = _extract_bearer_token(ctx)
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers = {"Authorization": f"Bearer {token}"}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -263,6 +388,15 @@ async def intelligent_tool_finder(
             "status": "success",
         }
 
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        return {
+            "results": [],
+            "query": query,
+            "total_results": 0,
+            "error": str(e),
+            "status": "failed",
+        }
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error: {e.response.status_code}")
         return {
@@ -299,8 +433,10 @@ async def healthcheck(
     logger.info(f"healthcheck called with registry_url: {registry_url}")
 
     try:
+        # Validate inputs
+        registry_url = _validate_registry_url(registry_url)
         token = _extract_bearer_token(ctx)
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers = {"Authorization": f"Bearer {token}"}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
@@ -312,6 +448,13 @@ async def healthcheck(
         stats = RegistryStats(**data)
         return {**stats.model_dump(), "status": "success"}
 
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        return {
+            "health_status": "error",
+            "error": str(e),
+            "status": "failed",
+        }
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error: {e.response.status_code}")
         return {
@@ -337,8 +480,11 @@ if __name__ == "__main__":
     # Use HTTP transport if PORT is set (Docker container), otherwise stdio
     port = os.environ.get("PORT")
     if port:
-        logger.info(f"Running in HTTP mode on 0.0.0.0:{port}")
-        mcp.run(transport="streamable-http", host="0.0.0.0", port=int(port))
+        # Use configurable host with secure default (127.0.0.1)
+        # Set HOST=0.0.0.0 in environment for Docker deployments
+        host = os.environ.get("HOST", "127.0.0.1")
+        logger.info(f"Running in HTTP mode on {host}:{port}")
+        mcp.run(transport="streamable-http", host=host, port=int(port))
     else:
         logger.info("Running in stdio mode")
         mcp.run(transport="stdio")
