@@ -1,7 +1,9 @@
 services:
   registry:
-    ports:
+    ports: !override
       - "17860:7860"
+    environment:
+      - KEYCLOAK_URL=http://auth-server:8888
     networks:
       - default
       - traefik_proxy
