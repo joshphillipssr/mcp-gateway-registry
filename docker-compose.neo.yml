@@ -72,9 +72,15 @@ services:
         /app/.venv/bin/python -m pip install --quiet fastapi >/dev/null 2>&1 || /app/.venv/bin/python -m pip install fastapi
         exec /entrypoint.sh
     networks:
-      - default
-      - traefik_proxy
+      default:
+      traefik_proxy:
+      mcp_oauth_internal:
+        aliases:
+          - mcpgw-server
 
 networks:
+  mcp_oauth_internal:
+    external: true
+    name: mcp-gateway-oauth_mcp_internal
   traefik_proxy:
     external: true
