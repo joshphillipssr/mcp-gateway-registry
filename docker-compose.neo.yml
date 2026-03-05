@@ -4,6 +4,7 @@ services:
       - "17860:7860"
     environment:
       - KEYCLOAK_URL=http://auth-server:8888
+      - AUTH_SERVER_EXTERNAL_URL=https://mcp.joshsr.ai/registry-auth
     networks:
       - default
       - traefik_proxy
@@ -27,6 +28,9 @@ services:
       - traefik.http.routers.mcp-agentic-registry-assets.service=mcp-agentic-registry
 
   auth-server:
+    environment:
+      - AUTH_SERVER_EXTERNAL_URL=https://mcp.joshsr.ai/registry-auth
+      - KEYCLOAK_EXTERNAL_URL=https://mcp.joshsr.ai/registry-auth
     ports:
       - "18888:8888"
     networks:
