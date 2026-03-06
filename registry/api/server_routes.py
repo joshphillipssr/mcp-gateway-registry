@@ -263,6 +263,7 @@ async def read_root(
 async def get_servers_json(
     request: Request,
     query: str | None = None,
+    include_tool_list: bool = False,
     user_context: Annotated[dict, Depends(nginx_proxied_auth)] = None,
 ):
     """Get servers data as JSON for React frontend and external API (supports both session cookies and Bearer tokens)."""
@@ -369,34 +370,33 @@ async def get_servers_json(
                         }
                     )
 
-            service_data.append(
-                {
-                    "display_name": server_name,
-                    "path": path,
-                    "description": server_info.get("description", ""),
-                    "proxy_pass_url": server_info.get("proxy_pass_url", ""),
-                    "is_enabled": is_enabled,
-                    "tags": server_info.get("tags", []),
-                    "num_tools": server_info.get("num_tools", 0),
-                    "license": server_info.get("license", "N/A"),
-                    "health_status": normalized_status,
-                    "last_checked_iso": health_data["last_checked_iso"],
-                    "mcp_endpoint": server_info.get("mcp_endpoint"),
-                    "metadata": server_info.get("metadata", {}),
-                    "version": current_version,
-                    "versions": versions if len(versions) > 1 else None,
-                    "default_version": current_version,
-                    "mcp_server_version": server_info.get("mcp_server_version"),
-                    "mcp_server_version_previous": server_info.get("mcp_server_version_previous"),
-                    "mcp_server_version_updated_at": server_info.get(
-                        "mcp_server_version_updated_at"
-                    ),
-                    "sync_metadata": server_info.get("sync_metadata"),
-                    "auth_scheme": server_info.get("auth_scheme", "none"),
-                    "auth_header_name": server_info.get("auth_header_name"),
-                    "tool_list": server_info.get("tool_list"),
-                }
-            )
+            server_payload = {
+                "display_name": server_name,
+                "path": path,
+                "description": server_info.get("description", ""),
+                "proxy_pass_url": server_info.get("proxy_pass_url", ""),
+                "is_enabled": is_enabled,
+                "tags": server_info.get("tags", []),
+                "num_tools": server_info.get("num_tools", 0),
+                "license": server_info.get("license", "N/A"),
+                "health_status": normalized_status,
+                "last_checked_iso": health_data["last_checked_iso"],
+                "mcp_endpoint": server_info.get("mcp_endpoint"),
+                "metadata": server_info.get("metadata", {}),
+                "version": current_version,
+                "versions": versions if len(versions) > 1 else None,
+                "default_version": current_version,
+                "mcp_server_version": server_info.get("mcp_server_version"),
+                "mcp_server_version_previous": server_info.get("mcp_server_version_previous"),
+                "mcp_server_version_updated_at": server_info.get("mcp_server_version_updated_at"),
+                "sync_metadata": server_info.get("sync_metadata"),
+                "auth_scheme": server_info.get("auth_scheme", "none"),
+                "auth_header_name": server_info.get("auth_header_name"),
+            }
+            if include_tool_list:
+                server_payload["tool_list"] = server_info.get("tool_list")
+
+            service_data.append(server_payload)
 
     return {"servers": service_data}
 
@@ -878,25 +878,10 @@ async def internal_register_service(
         )
 
     logger.warning(
-        "INTERNAL REGISTER: Auto-enabling newly registered server"
-    )  # TODO: replace with debug
-
-    # Automatically enable the newly registered server BEFORE FAISS indexing
-    try:
-        toggle_success = await server_service.toggle_service(path, True)
-        if toggle_success:
-            logger.info(f"Successfully auto-enabled server {path} after registration")
-        else:
-            logger.warning(f"Failed to auto-enable server {path} after registration")
-    except Exception as e:
-        logger.error(f"Error auto-enabling server {path}: {e}")
-        # Non-fatal error - server is registered but not enabled
-
-    logger.warning(
         "INTERNAL REGISTER: Server registered successfully, adding to FAISS index"
     )  # TODO: replace with debug
 
-    # Add to FAISS index with current enabled state (should be True after auto-enable)
+    # Add to FAISS index with current enabled state (disabled by default).
     is_enabled = await server_service.is_service_enabled(path)
     await faiss_service.add_or_update_service(path, server_entry, is_enabled)
 
@@ -2058,7 +2043,7 @@ async def internal_list_groups(
 
 @router.post("/tokens/generate")
 async def generate_user_token(
-    request: Request, user_context: Annotated[dict, Depends(enhanced_auth)]
+    request: Request, user_context: Annotated[dict, Depends(nginx_proxied_auth)]
 ):
     """
     Generate a JWT token for the authenticated user.

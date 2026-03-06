@@ -1256,7 +1256,7 @@ class PeerFederationService:
         """
         try:
             search_repo = get_search_repository()
-            is_enabled = server_data.get("is_enabled", True)
+            is_enabled = bool(server_data.get("is_enabled", False))
             await search_repo.index_server(path, server_data, is_enabled)
             logger.debug(f"Indexed synced server for search: {path}")
         except Exception as e:

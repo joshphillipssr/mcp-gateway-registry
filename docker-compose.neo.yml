@@ -3,8 +3,15 @@ services:
     ports: !override
       - "17860:7860"
     environment:
+      - AUTH_PROVIDER=keycloak
+      - KEYCLOAK_ENABLED=true
       - KEYCLOAK_URL=http://auth-server:8888
       - AUTH_SERVER_EXTERNAL_URL=https://auth.mcp.joshsr.ai
+      - SESSION_COOKIE_SECURE=true
+      - SESSION_COOKIE_DOMAIN=.mcp.joshsr.ai
+    volumes:
+      # Persist file-backed federation config for startup sync and UI updates.
+      - /home/deploy/mcp-gateway/federation:/app/config/federation
     networks:
       - default
       - traefik_proxy
@@ -20,9 +27,16 @@ services:
 
   auth-server:
     environment:
+      - AUTH_PROVIDER=keycloak
+      - KEYCLOAK_ENABLED=true
       - REGISTRY_URL=https://registry.mcp.joshsr.ai
       - AUTH_SERVER_EXTERNAL_URL=https://auth.mcp.joshsr.ai
-      - KEYCLOAK_EXTERNAL_URL=https://auth.mcp.joshsr.ai
+      - KEYCLOAK_EXTERNAL_URL=https://keycloak.mcp.joshsr.ai
+      - SESSION_COOKIE_SECURE=true
+      - SESSION_COOKIE_DOMAIN=.mcp.joshsr.ai
+    volumes:
+      # Ensure group->scope mappings are available to auth validation.
+      - /home/deploy/mcp-gateway/auth_server/scopes.yml:/app/auth_server/scopes.yml:ro
     ports:
       - "18888:8888"
     networks:
@@ -37,6 +51,24 @@ services:
       - traefik.http.routers.mcp-agentic-auth.tls=true
       - traefik.http.routers.mcp-agentic-auth.tls.certresolver=cf
       - traefik.http.routers.mcp-agentic-auth.service=mcp-agentic-auth
+
+  keycloak:
+    ports:
+      - "18080:8080"
+    environment:
+      - KC_FRONTEND_URL=https://keycloak.mcp.joshsr.ai
+    networks:
+      - default
+      - traefik_proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+      - traefik.http.services.mcp-agentic-keycloak.loadbalancer.server.port=8080
+      - traefik.http.routers.mcp-agentic-keycloak.rule=Host(`keycloak.mcp.joshsr.ai`)
+      - traefik.http.routers.mcp-agentic-keycloak.entrypoints=websecure
+      - traefik.http.routers.mcp-agentic-keycloak.tls=true
+      - traefik.http.routers.mcp-agentic-keycloak.tls.certresolver=cf
+      - traefik.http.routers.mcp-agentic-keycloak.service=mcp-agentic-keycloak
 
   metrics-service:
     ports:

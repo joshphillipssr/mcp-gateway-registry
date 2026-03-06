@@ -247,7 +247,8 @@ class AnthropicFederationClient(BaseFederationClient):
             "attribution_label": "Anthropic MCP Registry",
             # Additional fields for compatibility
             "path": f"/{server_name.replace('/', '-')}",
-            "is_enabled": True,
+            # Keep federated servers disabled until explicitly enabled by an operator.
+            "is_enabled": False,
             "health_status": "unknown",  # Will be updated by health checks
             "num_tools": 0,  # Will be updated if we can query the server
         }
