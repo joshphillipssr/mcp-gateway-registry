@@ -55,6 +55,75 @@ export interface SyncResult {
   new_generation: number;
 }
 
+/**
+ * Built-in federation source names accepted by /api/federation/sync.
+ */
+export type FederationSyncSource = 'anthropic' | 'asor';
+
+/**
+ * Progress payload reported by federation sync jobs.
+ */
+export interface FederationSyncJobProgress {
+  phase?: string;
+  source?: string;
+  processed?: number;
+  total?: number | null;
+  synced?: number;
+  errors?: number;
+  updated_at?: string;
+}
+
+/**
+ * Result payload stored when a federation sync job completes.
+ */
+export interface FederationSyncJobResult {
+  total_synced?: number;
+  results?: {
+    anthropic?: { count?: number };
+    asor?: { count?: number };
+  };
+  reconciliation?: {
+    removed_count?: number;
+  };
+}
+
+/**
+ * Background federation sync job returned by /api/federation/sync/jobs.
+ */
+export interface FederationSyncJob {
+  job_id: string;
+  config_id: string;
+  source: string;
+  requested_by: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  error?: string | null;
+  result?: FederationSyncJobResult | null;
+  progress?: FederationSyncJobProgress;
+}
+
+/**
+ * Response shape from /api/federation/sync/jobs.
+ */
+export interface FederationSyncJobsResponse {
+  jobs: FederationSyncJob[];
+  total: number;
+  active_job_id: string | null;
+}
+
+/**
+ * Response shape from queued background sync request.
+ */
+export interface FederationSyncQueuedResponse {
+  message: string;
+  config_id: string;
+  job_id: string;
+  job: FederationSyncJob;
+  status_endpoint: string;
+}
+
 
 /**
  * Form data for creating or updating a peer.
@@ -258,6 +327,33 @@ export async function deletePeer(peerId: string): Promise<void> {
 
 export async function syncPeer(peerId: string): Promise<SyncResult> {
   const response = await axios.post(`/api/peers/${peerId}/sync`);
+  return response.data;
+}
+
+
+export async function triggerFederationSync(
+  source?: FederationSyncSource
+): Promise<FederationSyncQueuedResponse> {
+  const response = await axios.post(
+    '/api/federation/sync',
+    null,
+    {
+      params: {
+        background: true,
+        ...(source ? { source } : {}),
+      },
+    }
+  );
+  return response.data;
+}
+
+
+export async function listFederationSyncJobs(
+  limit: number = 20
+): Promise<FederationSyncJobsResponse> {
+  const response = await axios.get('/api/federation/sync/jobs', {
+    params: { limit },
+  });
   return response.data;
 }
 

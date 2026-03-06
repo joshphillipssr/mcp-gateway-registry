@@ -402,9 +402,10 @@ class ServerService:
         all_servers = await self._repo.list_all()
         enabled_paths = []
 
-        # Extract state from list_all() response instead of N+1 queries
+        # Query persisted state via repository to avoid stale in-document fields,
+        # especially for file backend where state is stored separately.
         for path, server_info in all_servers.items():
-            if not server_info.get("is_enabled", False):
+            if not await self._repo.get_state(path):
                 continue
 
             # Skip inactive versions - only health check active versions

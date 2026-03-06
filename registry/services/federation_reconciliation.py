@@ -214,11 +214,8 @@ async def reconcile_anthropic_servers(
     if removed and nginx_service and not skip_nginx_regen:
         try:
             all_servers = await server_repo.list_all()
-            enabled_servers = {
-                p: info
-                for p, info in all_servers.items()
-                if info.get("is_enabled", False)
-            }
+            enabled_paths = await server_service.get_enabled_services()
+            enabled_servers = {p: all_servers[p] for p in enabled_paths if p in all_servers}
             await nginx_service.generate_config_async(enabled_servers)
             logger.info("Reconciliation: nginx config regenerated")
         except Exception as e:

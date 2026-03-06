@@ -10,6 +10,9 @@ import {
   TrashIcon,
   PlayIcon,
   ExclamationCircleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import {
@@ -18,6 +21,10 @@ import {
   PeerWithStatus,
   deletePeer,
   syncPeer,
+  triggerFederationSync,
+  listFederationSyncJobs,
+  FederationSyncJob,
+  FederationSyncSource,
 } from '../hooks/useFederationPeers';
 import useEscapeKey from '../hooks/useEscapeKey';
 
@@ -72,6 +79,42 @@ function formatLastSync(dateString: string | null | undefined): string {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   return date.toLocaleDateString();
+}
+
+/**
+ * Convert federation source codes to readable labels.
+ */
+function getFederationSourceLabel(source: string): string {
+  if (source === 'anthropic') return 'Anthropic';
+  if (source === 'asor') return 'ASOR';
+  return 'All Sources';
+}
+
+/**
+ * Convert phase codes to readable labels.
+ */
+function getPhaseLabel(phase: string | undefined): string {
+  if (!phase) return 'Queued';
+  return phase
+    .split('_')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+/**
+ * Classes for federation sync job status badges.
+ */
+function getFederationJobStatusClasses(status: string): string {
+  if (status === 'completed') {
+    return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  }
+  if (status === 'failed') {
+    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+  }
+  if (status === 'running') {
+    return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+  }
+  return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
 }
 
 
@@ -220,6 +263,30 @@ const FederationPeers: React.FC<FederationPeersProps> = ({ onShowToast }) => {
   const [deleteTarget, setDeleteTarget] = useState<PeerWithStatus | null>(null);
   const [typedName, setTypedName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [federationJobs, setFederationJobs] = useState<FederationSyncJob[]>([]);
+  const [activeFederationJobId, setActiveFederationJobId] = useState<string | null>(null);
+  const [isLoadingFederationJobs, setIsLoadingFederationJobs] = useState(false);
+  const [federationJobsError, setFederationJobsError] = useState<string | null>(null);
+  const [triggeringSource, setTriggeringSource] = useState<'all' | FederationSyncSource | null>(null);
+
+  const fetchFederationJobs = useCallback(async () => {
+    try {
+      setIsLoadingFederationJobs(true);
+      setFederationJobsError(null);
+      const response = await listFederationSyncJobs(10);
+      setFederationJobs(response.jobs || []);
+      setActiveFederationJobId(response.active_job_id ?? null);
+    } catch (err: any) {
+      console.error('Failed to fetch federation sync jobs:', err);
+      setFederationJobsError(
+        err.response?.data?.detail ||
+        err.message ||
+        'Failed to fetch federation sync jobs'
+      );
+    } finally {
+      setIsLoadingFederationJobs(false);
+    }
+  }, []);
 
   useEscapeKey(() => { setDeleteTarget(null); setTypedName(''); }, !!deleteTarget);
 
@@ -228,6 +295,57 @@ const FederationPeers: React.FC<FederationPeersProps> = ({ onShowToast }) => {
     const interval = setInterval(refetch, 30000);
     return () => clearInterval(interval);
   }, [refetch]);
+
+  // Initial federation jobs load
+  useEffect(() => {
+    fetchFederationJobs();
+  }, [fetchFederationJobs]);
+
+  // Poll federation jobs, faster while a job is active.
+  useEffect(() => {
+    const hasActiveJob = federationJobs.some(job => job.status === 'queued' || job.status === 'running');
+    const pollIntervalMs = hasActiveJob ? 3000 : 15000;
+    const interval = setInterval(fetchFederationJobs, pollIntervalMs);
+    return () => clearInterval(interval);
+  }, [federationJobs, fetchFederationJobs]);
+
+  const handleBuiltInSync = async (source?: FederationSyncSource) => {
+    const selectedSource: 'all' | FederationSyncSource = source ?? 'all';
+    setTriggeringSource(selectedSource);
+    try {
+      const result = await triggerFederationSync(source);
+      setActiveFederationJobId(result.job_id);
+      const sourceLabel = source ? getFederationSourceLabel(source) : 'all enabled sources';
+      onShowToast(`Queued federation sync for ${sourceLabel}`, 'info');
+      await fetchFederationJobs();
+    } catch (err: any) {
+      onShowToast(
+        err.response?.data?.detail || err.message || 'Failed to queue federation sync',
+        'error'
+      );
+    } finally {
+      setTriggeringSource(null);
+    }
+  };
+
+  const activeFederationJob = useMemo(() => {
+    if (activeFederationJobId) {
+      const jobById = federationJobs.find(job => job.job_id === activeFederationJobId);
+      if (jobById) return jobById;
+    }
+    return federationJobs.find(job => job.status === 'queued' || job.status === 'running') || null;
+  }, [federationJobs, activeFederationJobId]);
+
+  const activeJobProgressPercent = useMemo(() => {
+    if (!activeFederationJob) return null;
+    const processed = activeFederationJob.progress?.processed ?? 0;
+    const total = activeFederationJob.progress?.total;
+    if (typeof total !== 'number' || total <= 0) return null;
+    return Math.max(0, Math.min(100, Math.round((processed / total) * 100)));
+  }, [activeFederationJob]);
+
+  const hasActiveFederationJob =
+    activeFederationJob?.status === 'queued' || activeFederationJob?.status === 'running';
 
   // Filter peers by search query
   const filteredPeers = useMemo(() => {
@@ -385,6 +503,160 @@ const FederationPeers: React.FC<FederationPeersProps> = ({ onShowToast }) => {
           <PlusIcon className="h-5 w-5 mr-2" />
           Add Peer
         </button>
+      </div>
+
+      {/* Built-in federation sync controls */}
+      <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-900/20 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+              Built-in Federation Sources
+            </h3>
+            <p className="text-xs text-indigo-700 dark:text-indigo-300">
+              Trigger Anthropic or ASOR sync and monitor background job progress.
+            </p>
+          </div>
+          <button
+            onClick={fetchFederationJobs}
+            className="p-2 rounded-md text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+            title="Refresh federation sync jobs"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isLoadingFederationJobs ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => handleBuiltInSync()}
+            disabled={triggeringSource !== null || hasActiveFederationJob}
+            className="px-3 py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {triggeringSource === 'all' ? 'Queueing...' : 'Sync All Enabled'}
+          </button>
+          <button
+            onClick={() => handleBuiltInSync('anthropic')}
+            disabled={triggeringSource !== null || hasActiveFederationJob}
+            className="px-3 py-2 text-sm font-medium rounded-lg bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {triggeringSource === 'anthropic' ? 'Queueing...' : 'Sync Anthropic'}
+          </button>
+          <button
+            onClick={() => handleBuiltInSync('asor')}
+            disabled={triggeringSource !== null || hasActiveFederationJob}
+            className="px-3 py-2 text-sm font-medium rounded-lg bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {triggeringSource === 'asor' ? 'Queueing...' : 'Sync ASOR'}
+          </button>
+        </div>
+
+        {federationJobsError && (
+          <p className="text-xs text-red-600 dark:text-red-400">
+            {federationJobsError}
+          </p>
+        )}
+
+        {activeFederationJob && (
+          <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-800 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {activeFederationJob.status === 'completed' ? (
+                  <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                ) : activeFederationJob.status === 'failed' ? (
+                  <XCircleIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
+                ) : (
+                  <ArrowPathIcon className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
+                )}
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getFederationJobStatusClasses(activeFederationJob.status)}`}>
+                  {activeFederationJob.status.toUpperCase()}
+                </span>
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {getFederationSourceLabel(activeFederationJob.source)}
+              </span>
+            </div>
+
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              Phase: <span className="font-medium">{getPhaseLabel(activeFederationJob.progress?.phase)}</span>
+            </div>
+
+            {activeJobProgressPercent !== null && (
+              <div>
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <span>{activeFederationJob.progress?.processed ?? 0} / {activeFederationJob.progress?.total}</span>
+                  <span>{activeJobProgressPercent}%</span>
+                </div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-600 dark:bg-indigo-400 rounded-full transition-all"
+                    style={{ width: `${activeJobProgressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <div>Synced: <span className="font-medium text-gray-800 dark:text-gray-200">{activeFederationJob.progress?.synced ?? 0}</span></div>
+              <div>Errors: <span className="font-medium text-gray-800 dark:text-gray-200">{activeFederationJob.progress?.errors ?? 0}</span></div>
+              <div className="truncate" title={activeFederationJob.job_id}>Job: <span className="font-mono">{activeFederationJob.job_id.slice(0, 8)}</span></div>
+            </div>
+
+            {activeFederationJob.error && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {activeFederationJob.error}
+              </p>
+            )}
+          </div>
+        )}
+
+        {federationJobs.length > 0 && (
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+              Recent Sync Jobs
+            </h4>
+            <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1">
+              {federationJobs.slice(0, 6).map((job) => {
+                const anthropicCount = job.result?.results?.anthropic?.count ?? 0;
+                const asorCount = job.result?.results?.asor?.count ?? 0;
+                return (
+                  <div
+                    key={job.job_id}
+                    className="rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {job.status === 'completed' ? (
+                          <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        ) : job.status === 'failed' ? (
+                          <XCircleIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        ) : (
+                          <ClockIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${getFederationJobStatusClasses(job.status)}`}>
+                          {job.status}
+                        </span>
+                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                          {getFederationSourceLabel(job.source)}
+                        </span>
+                      </div>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {formatLastSync(job.created_at)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-3 text-gray-600 dark:text-gray-400">
+                      <span>Anthropic: {anthropicCount}</span>
+                      <span>ASOR: {asorCount}</span>
+                      <span>Errors: {job.progress?.errors ?? 0}</span>
+                      <span className="font-mono" title={job.job_id}>{job.job_id.slice(0, 8)}</span>
+                    </div>
+                    {job.error && (
+                      <p className="mt-1 text-red-600 dark:text-red-400">{job.error}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search */}
