@@ -3,6 +3,7 @@ services:
     ports: !override
       - "17860:7860"
     environment:
+      - ROOT_PATH=/registry
       - KEYCLOAK_URL=http://auth-server:8888
       - AUTH_SERVER_EXTERNAL_URL=https://mcp.joshsr.ai/registry-auth
     networks:
