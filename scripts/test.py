@@ -141,8 +141,8 @@ def _run_pytest(args: list[str], description: str, workers: str | None = None) -
                     f"WARNING: Running with {workers} workers may cause OOM on EC2", Colors.YELLOW
                 )
 
-    # Build the command
-    cmd = ["pytest"] + args
+    # Build the command with the current interpreter so venv pytest is used.
+    cmd = [sys.executable, "-m", "pytest"] + args
 
     logger.info(f"Running: {' '.join(cmd)}")
 
