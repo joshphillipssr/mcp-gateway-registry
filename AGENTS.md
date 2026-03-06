@@ -63,6 +63,19 @@ Run before submitting changes:
    - `./tests/run_all_tests.sh`
 4. Run configured lint/type/security checks from project tooling (`pre-commit`, `ruff`, `mypy`, `bandit`) as applicable.
 
+When a change is deployed to a live environment (for example neo), run this smoke checklist before handoff:
+
+1. Service health:
+   - `docker compose -f docker-compose.yml -f docker-compose.neo.yml ps` shows `healthy` (or `Up` where no healthcheck exists) for `registry`, `auth-server`, and `mcpgw-server`.
+2. Host routing:
+   - `https://registry.mcp.joshsr.ai/` returns HTTP `200`.
+   - `https://keycloak.mcp.joshsr.ai/` returns redirect/login (`302` or `200` depending on client follow behavior).
+3. OAuth/Gateway guardrail checks:
+   - `https://mcp.joshsr.ai/mcp/agentic` returns `401` when called without auth.
+   - `https://mcp.joshsr.ai/mcp/docker` returns `401` when called without auth.
+4. Regression scan:
+   - `docker compose ... logs --tail 120 registry auth-server mcpgw-server` has no startup crash loops (`ModuleNotFoundError`, repeated restarts).
+
 ## Fork Customization Workflow
 
 - Track fork-only divergence in `customizations.md`.

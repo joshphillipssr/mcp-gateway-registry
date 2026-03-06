@@ -21,6 +21,7 @@ Purpose:
 |---|---|---|---|---|---|---|
 | CUST-001 | Active | Branding | Rebrand platform naming to `JoshSr.AI Unified Agentic Integration Platform (UAIP)` in fork-owned docs/messaging. | `README.md`, docs where UAIP appears | No | Fork identity decision; keep out of upstream PRs unless upstream requests it. |
 | CUST-002 | Active | Branch Workflow | Maintain dual-branch model: `main` mirrors upstream, `production` carries operational customizations. | Branch policy/process | No | Use `main` for upstream PR branches; never submit upstream PRs from `production`. |
+| CUST-003 | Active | Ops Workflow | Require explicit post-deploy smoke checks for neo/production-style deployments before handoff. | `AGENTS.md` | No | Fork runbook preference to reduce deployment regressions and ambiguous status. |
 
 ## Candidate Queue (Optional)
 
