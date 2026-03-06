@@ -909,6 +909,9 @@ class TestServiceStateManagement:
             sample_server_dict["path"]: server_1,
             sample_server_dict_2["path"]: server_2,
         }
+        mock_server_repository.get_state.side_effect = (
+            lambda path: path == sample_server_dict["path"]
+        )
 
         # Act
         result = await server_service.get_enabled_services()

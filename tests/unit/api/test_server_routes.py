@@ -943,18 +943,17 @@ class TestInternalRegister:
             assert response.status_code == 409
             assert "already exists" in response.json()["reason"].lower()
 
-    def test_internal_register_auto_enables_service(
+    def test_internal_register_keeps_service_disabled_by_default(
         self, test_client_no_auth, mock_server_service, mock_faiss_service, mock_nginx_service
     ):
-        """Test that internal registration auto-enables the service."""
+        """Test that internal registration keeps services disabled by default."""
         # Arrange - register_server returns a dict now
         mock_server_service.register_server.return_value = {
             "success": True,
             "message": "Server registered successfully",
             "is_new_version": False,
         }
-        mock_server_service.toggle_service.return_value = True
-        mock_server_service.is_service_enabled.return_value = True
+        mock_server_service.is_service_enabled.return_value = False
         credentials = base64.b64encode(b"admin:testpass").decode("utf-8")
 
         with (
@@ -975,7 +974,7 @@ class TestInternalRegister:
 
             # Assert
             assert response.status_code == 201
-            mock_server_service.toggle_service.assert_called_once_with("/auto-enabled", True)
+            mock_server_service.toggle_service.assert_not_called()
 
 
 # =============================================================================
