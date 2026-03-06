@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Registry service (includes nginx, SSL, FAISS, models)
   # PODMAN VERSION: Uses non-privileged ports for rootless operation

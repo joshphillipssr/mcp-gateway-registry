@@ -1,5 +1,3 @@
-version: '3.8'
-
 # DocumentDB Initialization:
 # For AWS DocumentDB Elastic Cluster setup, run the initialization script:
 #   export DOCUMENTDB_HOST=your-cluster.docdb.amazonaws.com
